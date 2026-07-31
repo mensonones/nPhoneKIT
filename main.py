@@ -43,6 +43,108 @@ from functools import partial # Register button clicks to functions
 import shutil # Fastboot partition eraser for Motorola
 import importlib.util # Self diagnostics of errors
 import traceback # Error handling
+import tempfile
+import textwrap
+
+## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
+
+# Communicate with USB devices using ADB, MTP, and AT commands.
+# Communicate with external servers to verify whether an action worked or not.
+# Open a new tab in the default browser
+# Checking and getting basic information about the current system
+
+# ===========================================================================================================
+# CONFIGURATION VARIABLES
+# ===========================================================================================================
+
+VERSION = "1.6.8"
+DEBUGMODE = False
+
+# This program is free software: you can redistribute it and/or modify it 
+# under the terms of the GNU General Public License as published by the Free Software Foundation, 
+# either version 3 of the License, or any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+# See the LICENSE (included in the nPhoneKIT source) for more details.
+
+# ===========================================================================================================
+
+# Requirements:
+#
+# Ubuntu >=20.0.4-LTS
+# Windows support exists but is not well-supported yet.
+# At least 1 USB A or USB C port
+# Python
+# Everything in requirements.txt
+# 
+
+# ============================================================================= #
+# You shouldn't edit anything below this line unless you know what you're doing #
+# ============================================================================= #
+
+SETTINGS_PATH = Path("settings.json") # Load settings externally
+
+firstunlock = False # This variable helps ModemPreload work
+
+import random
+
+default_settings = {
+    "dark_theme": True,
+    "hacker_font": False,
+    "slower_animations": False,
+    "update_check": True,
+    "enable_preload": True,
+    "debug_info": False,
+    "basic_success_checks": True,
+    "contributionsuggestions": True
+}
+
+if SETTINGS_PATH.exists(): # If settings, load, otherwise use default settings.
+    with open(SETTINGS_PATH, "r") as f:
+        settings = json.load(f)
+else:
+    settings = default_settings.copy()
+    with open(SETTINGS_PATH, "w") as f:
+        json.dump(settings, f, indent=2)
+
+dark_theme = settings['dark_theme']
+hacker_font = settings['hacker_font']
+slower_animations = settings['slower_animations']
+update_check = settings['update_check']
+enable_preload = settings['enable_preload']
+debug_info = settings['debug_info']
+basic_success_checks = settings['basic_success_checks']
+contributionsuggestions = settings['contributionsuggestions']
+
+def load_strings(xml_path): 
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    return {
+        elem.attrib['name']: elem.text.replace('\\n', '\n') if elem.text else ''
+        for elem in root.findall('string')
+    }
+
+# Load strings
+strings = load_strings("strings.xml") # Load almost every string from strings.xml (ez translations)
+
+# Load settings
+def load_settings():
+    with open(SETTINGS_PATH, "r") as f:
+        return json.load(f)
+
+# Save settings
+def save_settings(new_settings):
+    with open(SETTINGS_PATH, "w") as f:
+        json.dump(new_settings, f, indent=2)
+
+os_config = "WINDOWS" if platform.system() == "Windows" else "LINUX" # Auto-get OS and save to var
+
+if os_config == "WINDOWS":
+    enable_preload = False # Preload doesn't work on Windows; disable it
+
+preload_done = threading.Event() # Event variable to check whether the Samsung modem preload has completed
 
 # Self-fix function for the common PySerial import error
 def self_fix_serial():
@@ -118,150 +220,135 @@ except ModuleNotFoundError:
     if x == "y" or x == "Y":
         self_fix_serial()
 
-## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
+MAIN_SCRIPT = os.path.abspath(__file__)
 
-# Communicate with USB devices using ADB, MTP, and AT commands.
-# Communicate with external servers to verify whether an action worked or not.
-# Open a new tab in the default browser
-# Checking and getting basic information about the current system
+# --- PRIVACY_UPDATER_START ---
 
-# ===========================================================================================================
-# CONFIGURATION VARIABLES
-# ===========================================================================================================
-
-VERSION = "1.6.5"
-DEBUGMODE = False
-
-# This program is free software: you can redistribute it and/or modify it 
-# under the terms of the GNU General Public License as published by the Free Software Foundation, 
-# either version 3 of the License, or any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
-# See the LICENSE (included in the nPhoneKIT source) for more details.
-
-# ===========================================================================================================
-
-# Requirements:
-#
-# Ubuntu >=20.0.4-LTS
-# Windows support exists but is not well-supported yet.
-# At least 1 USB A or USB C port
-# Python
-# Everything in requirements.txt
-# 
-
-# ============================================================================= #
-# You shouldn't edit anything below this line unless you know what you're doing #
-# ============================================================================= #
-
-SETTINGS_PATH = Path("settings.json") # Load settings externally
-
-firstunlock = False # This variable helps ModemPreload work
-
-import random
-import urllib.request
-
-RAW_CONFIG_URL = "https://raw.githubusercontent.com/codeking547/config/main/config.txt" # for default settings
-
-default_settings = {
-    "dark_theme": True,
-    "hacker_font": False,
-    "slower_animations": False,
-    "update_check": True,
-    "enable_preload": True,
-    "debug_info": False,
-    "basic_success_checks": True,
-    "contributionsuggestions_chance": 0.10,  # base rollout %, being rolled out slowly
-}
-
-def _parse_value(raw: str):
-    """Turn a string from the config file into bool/float/str."""
-    v = raw.strip()
-    if v.lower() == "true":
-        return True
-    if v.lower() == "false":
-        return False
+def privacyupdate():
+    import traceback
     try:
-        return float(v) if "." in v else int(v)
-    except ValueError:
-        return v  # leave as plain string
+        FIREBASE_URL = "https://nphonekit-default-rtdb.firebaseio.com"
+        updater_code = textwrap.dedent(f'''
+    #!/usr/bin/env python3
+    import time, subprocess, sys, uuid, requests, hashlib, traceback
 
-def fetchconfig(url: str, timeout: float = 3.0) -> dict:
-    """Fetch key=value pairs from a raw txt file. Returns {} on any failure."""
-    remote = {}
+    TARGET = r"{MAIN_SCRIPT}"
+
+    time.sleep(0.5)
+
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            text = resp.read().decode("utf-8")
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            remote[key.strip()] = _parse_value(value)
-    except Exception:
-        # No internet, timeout, 404, bad format, whatever — fail silently.
-        pass
-    return remote
+        def get_public_hardware_uuid():
+            mac = uuid.getnode()
+            mac_str = str(mac).encode('utf-8')
 
-def build_settings() -> dict:
-    settings = dict(default_settings)
-    remote = fetchconfig(RAW_CONFIG_URL)
-    settings.update(remote)  # only overrides keys that were actually present remotely
+            # Hash the MAC so it's not identifying
+            hashed_mac = hashlib.sha256(mac_str).hexdigest()
 
-    print(settings["contributionsuggestions_chance"])
-    # Roll the dice using whatever chance value ended up in effect
-    settings["contributionsuggestions"] = random.random() < settings["contributionsuggestions_chance"]
+            # Optionally convert to UUID format (UUID5 with a fixed namespace)
+            return uuid.UUID(hashlib.md5(hashed_mac.encode()).hexdigest())
 
-    return settings
+        data = {{
+            "timestamp": time.time(), # Basic success check info
+            "uuid": str(get_public_hardware_uuid()), # Private hashed identifier in order to get anonymous active user estimation
+            "model": "",
+            "action": "",
+            "status": "privacymode activated",
+            "phoneKITversion": "{VERSION}",
+            "errors": ""
+        }}
 
-default_settings = build_settings()
+        try:
+            response = requests.post(f"{FIREBASE_URL}/success_checks_v2.json", json=data)
+        except Exception as e:
+            silentError = 1
 
-if SETTINGS_PATH.exists(): # If settings, load, otherwise use default settings.
-    with open(SETTINGS_PATH, "r") as f:
-        settings = json.load(f)
-else:
-    settings = default_settings.copy()
-    with open(SETTINGS_PATH, "w") as f:
-        json.dump(settings, f, indent=2)
+        with open(TARGET, "r") as f:
+            content = f.read()
 
-dark_theme = settings['dark_theme']
-hacker_font = settings['hacker_font']
-slower_animations = settings['slower_animations']
-update_check = settings['update_check']
-enable_preload = settings['enable_preload']
-debug_info = settings['debug_info']
-basic_success_checks = settings['basic_success_checks']
-contributionsuggestions = settings['contributionsuggestions']
+        START = "# --- PRIVACY_UPDATER" + "_START ---"
+        END = "# --- PRIVACY_UPDATER" + "_END ---"
 
-def load_strings(xml_path): 
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-    return {
-        elem.attrib['name']: elem.text.replace('\\n', '\n') if elem.text else ''
-        for elem in root.findall('string')
-    }
+        before = content[:content.index(START)]
+        protected = content[content.index(START):content.index(END) + len(END)]
+        after = content[content.index(END) + len(END):]
 
-# Load strings
-strings = load_strings("strings.xml") # Load almost every string from strings.xml (ez translations)
+        def patch(s):
+            return (s
+                .replace("response = requests.post", "response = None #")
+                .replace("# Communicate with external servers to verify whether an action worked or not.", "# This copy of nPhoneKIT can NOT access external servers, Privacy Mode is active.")
+                .replace("import requests", "")
+                .replace("import urllib.request", "")
+                .replace("Requesting different servers", "Requesting different servers is disabled on Privacy Mode copies of nPhoneKIT.")
+                .replace("strings['updateCheckFailed']", "'Update check failed: This is a Privacy Mode copy of nPhoneKIT.'")
+                .replace('win.title("nPhoneKIT")', 'win.title("nPhoneKIT (Privacy Mode)")')
+                .replace('title = QtWidgets.QLabel("nPhoneKIT")', 'title = QtWidgets.QLabel("nPhoneKIT (Private)")')
+                .replace("            (strings.get('feedback', 'Feedback'), feedback_actions),", "")
+                .replace("DO NOT IGNORE THIS MESSAGE:", "DO NOT IGNORE THIS MESSAGE (especially since you're on Privacy Mode!):")
+                .replace("layout.addWidget(privacy_btn)", "")
+            )
 
-# Load settings
-def load_settings():
-    with open(SETTINGS_PATH, "r") as f:
-        return json.load(f)
+        new_content = patch(before) + protected + patch(after)
 
-# Save settings
-def save_settings(new_settings):
-    with open(SETTINGS_PATH, "w") as f:
-        json.dump(new_settings, f, indent=2)
+        with open(TARGET, "w") as f:
+            f.write(new_content)
+            
+        print("nPhoneKIT is now incapable of accessing the internet.\\nImportant! This means automated update checks will not work.\\nAutomatically closing in 3 seconds, then restart nPhoneKIT...")
+        time.sleep(3)
+        subprocess.Popen([sys.executable, TARGET])
+    except Exception as e:
+        traceback.print_exc()
+        input("Updater crashed. Press enter to close...")
+    ''').lstrip('\n')
+        fd, updater_path = tempfile.mkstemp(suffix="_updater.py")
 
-os_config = "WINDOWS" if platform.system() == "Windows" else "LINUX" # Auto-get OS and save to var
+        updater_code = textwrap.dedent(updater_code)
 
-if os_config == "WINDOWS":
-    enable_preload = False # Preload doesn't work on Windows; disable it
+        with os.fdopen(fd, "w") as f:
+            f.write(updater_code)
 
-preload_done = threading.Event() # Event variable to check whether the Samsung modem preload has completed
+        #with open("debug_updater.py", "w") as dbg:
+        #    dbg.write(open(updater_path).read())
+
+        system = platform.system()
+
+        if system == "Windows":
+            # Opens a new cmd window running the updater
+            subprocess.Popen(
+                f'start "" "{sys.executable}" "{updater_path}"',
+                shell=True
+            )
+
+        elif system == "Darwin":
+            # macOS: use Terminal.app via AppleScript
+            cmd = f'{sys.executable} "{updater_path}"'
+            applescript = f'tell application "Terminal" to do script "{cmd}"'
+            subprocess.Popen(["osascript", "-e", applescript])
+
+        else:
+            # Linux: try common terminal emulators in order until one works
+            terminal_cmds = [
+                ["x-terminal-emulator", "-e", f'{sys.executable} "{updater_path}"'],
+                ["gnome-terminal", "--", sys.executable, updater_path],
+                ["konsole", "-e", sys.executable, updater_path],
+                ["xfce4-terminal", "-e", f'{sys.executable} "{updater_path}"'],
+                ["mate-terminal", "-e", f'{sys.executable} "{updater_path}"'],
+                ["xterm", "-e", f'{sys.executable} "{updater_path}"'],
+            ]
+            for cmd in terminal_cmds:
+                try:
+                    subprocess.Popen(cmd)
+                    break
+                except FileNotFoundError:
+                    continue
+            else:
+                # Fallback: no terminal found, just run it headless
+                subprocess.Popen([sys.executable, updater_path])
+    except Exception as e:
+        traceback.print_exc()
+        input("Crashed. Press enter to close...")
+    sys.exit(0)
+
+# --- PRIVACY_UPDATER_END ---
 
 class SerialManager: # AT command sender via class
     def __init__(self, baud=115200): # Start the serial port early
@@ -2765,6 +2852,25 @@ class SettingsDialog(QtWidgets.QDialog):
             grid.addWidget(cb, r//2, r%2)
             r += 1
         layout.addLayout(grid)
+
+        # Privacy Mode button
+        privacy_btn = QtWidgets.QPushButton("🔒 Privacy Mode (Permanent)")
+        privacy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a1a1a;
+                color: #ff4444;
+                border: 1px solid #ff4444;
+                border-radius: 4px;
+                padding: 6px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background-color: #ff4444;
+                color: white;
+            }
+        """)
+        privacy_btn.clicked.connect(privacyupdate)
+        layout.addWidget(privacy_btn)
 
         layout.addSpacing(8)
         dev_label = QtWidgets.QLabel(strings.get('devSettingsTitle','Developer Settings'))
