@@ -41,6 +41,7 @@ from PyQt5.QtGui import QPainter, QPen, QFont
 from datetime import datetime, timedelta
 from functools import partial # Register button clicks to functions
 import shutil # Fastboot partition eraser for Motorola
+import shlex
 import importlib.util # Self diagnostics of errors
 import traceback # Error handling
 import tempfile
@@ -139,7 +140,12 @@ def save_settings(new_settings):
     with open(SETTINGS_PATH, "w") as f:
         json.dump(new_settings, f, indent=2)
 
-os_config = "WINDOWS" if platform.system() == "Windows" else "LINUX" # Auto-get OS and save to var
+if platform.system() == "Windows":
+    os_config = "WINDOWS"
+elif platform.system() == "Darwin":
+    os_config = "MACOS"
+else:
+    os_config = "LINUX"  # Linux and other POSIX systems
 
 if os_config == "WINDOWS":
     enable_preload = False # Preload doesn't work on Windows; disable it
@@ -515,7 +521,7 @@ class SerialManagerWindows: # Version of SerialManager class specifically for Wi
 
 if os_config == "WINDOWS": # Choose which serial manager to use based on OS
     serman = SerialManagerWindows()
-elif os_config == "LINUX":
+elif os_config in ("LINUX", "MACOS"):
     serman = SerialManager()
 
 class AT:
@@ -549,21 +555,89 @@ class AT:
                     print(strings['deviceConCheckNotPlugged'])
     
 class ADB: # ADB class for sending ADB commands if needed
+    def path(): # Resolve the adb binary once so every call agrees on which adb to use
+        adb_path = shutil.which("adb")
+        if adb_path is None:
+            for candidate in ["/opt/homebrew/bin/adb", "/usr/local/bin/adb", "/usr/bin/adb"]:
+                if os.path.exists(candidate):
+                    adb_path = candidate
+                    break
+        return adb_path
+
+    def _run(adb_path, command, timeout=15): # Build the argv with the right privilege/OS prefix and run it, capturing output. Always time-bounded so a stuck device can't hang the worker thread forever (which looked like a crash).
+        if os_config == "LINUX":
+            argv = ["sudo", adb_path] + shlex.split(command)
+        else:
+            argv = [adb_path] + shlex.split(command)
+        return subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
+
+    def devices(): # Return the list of (serial, state) pairs adb currently sees. state is e.g. 'device', 'unauthorized', 'offline'
+        adb_path = ADB.path()
+        if adb_path is None:
+            return []
+        try:
+            result = ADB._run(adb_path, "devices", timeout=10)
+        except Exception: # Includes subprocess.TimeoutExpired if adb wedges on a half-enumerated device; treat as "nothing visible yet"
+            return []
+        pairs = []
+        for line in (result.stdout or "").splitlines()[1:]: # Skip the "List of devices attached" header
+            line = line.strip()
+            if not line or "\t" not in line:
+                continue
+            serial, state = line.split("\t", 1)
+            pairs.append((serial.strip(), state.strip()))
+        return pairs
+
+    def wait_for_device(timeout=40): # Poll adb until an authorized device appears. Returns 'device', 'unauthorized', or 'none'.
+        adb_path = ADB.path()
+        if adb_path is None:
+            return "none"
+        try:
+            ADB._run(adb_path, "start-server", timeout=15) # Make sure the server is up so it actively probes USB and can trigger the phone's auth prompt
+        except Exception: # Never let a slow/wedged start-server hang the wait
+            pass
+        print(strings['adbWaiting'])
+        deadline = time.time() + timeout
+        last = "none"
+        while time.time() < deadline:
+            states = [state for _, state in ADB.devices()]
+            if "device" in states:
+                print(strings['adbReady']) # Authorized and ready
+                return "device"
+            if "unauthorized" in states:
+                if last != "unauthorized":
+                    print(strings['adbUnauthorized']) # Announce the prompt only on the first transition, not every poll
+                last = "unauthorized" # Prompt is (or should be) showing on the phone; keep waiting for the user to tap ALLOW
+            time.sleep(1)
+        # Report why we gave up so the on-screen log distinguishes "never showed up" from "user didn't tap ALLOW"
+        print(strings['adbTimedOut'] if last == "unauthorized" else strings['adbNoDevice'])
+        return last
+
     def send(command):
         rt()
-        if os_config == "LINUX":
-            os.system(f"sudo bash -c 'sudo adb {command} > tmp_output_adb.txt 2>&1'")
-        elif os_config == "WINDOWS":
-            with open('tmp_output.txt', 'w') as f:
-                subprocess.run(['adb', command], stdout=f, stderr=subprocess.STDOUT)
+        adb_path = ADB.path()
+        if adb_path is None:
+            print("ADB not found. Please install platform-tools and ensure adb is on PATH.")
+            with open('tmp_output_adb.txt', 'w', encoding='utf-8') as f:
+                f.write("ADB not found")
+            time.sleep(0.5)
+            return
+
+        try:
+            result = ADB._run(adb_path, command, timeout=30)
+            output = result.stdout or ""
+        except subprocess.TimeoutExpired: # A wedged adb command must not hang the unlock; surface it as an error the callers already check for
+            output = "error: adb command timed out"
+        with open('tmp_output_adb.txt', 'w', encoding='utf-8') as f:
+            f.write(output)
         time.sleep(0.5)
-    
+
     def usbswitch(arg, action):
         # Later, add logic to allow switching of device interface to AT, for more compatibility.
         return True
 
 def check_serial_permissions():
-    if os_config == "LINUX":
+    if os_config in ("LINUX", "MACOS"):
         import grp
         import getpass
         import platform
@@ -572,9 +646,6 @@ def check_serial_permissions():
 
         # Serial device groups used across most distros
         serial_groups = ["dialout", "uucp", "lock", "tty"]
-
-        # Collect groups the user is currently in
-        user_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
 
         # Also check primary group ID (some distros put uucp as primary)
         try:
@@ -606,6 +677,9 @@ def check_serial_permissions():
             else:
                 # Fallback universal command
                 cmd = f"sudo usermod -aG dialout,uucp,lock {user}"
+        elif distro == "Darwin":
+            # macOS handles serial permissions through system privacy settings
+            return True
         else:
             cmd = "Unsupported OS for serial permissions."
 
@@ -1611,15 +1685,43 @@ def rt(): # Flush the output buffer. May be deprecated and replaced soon with a 
             pass
 
 def readOutput(type): # Read the output buffer based on command type AT or ADB
-    if type == "AT":
-        with open("tmp_output.txt", "r") as f:
-            output = f.read()
-    elif type == "ADB":
-        with open("tmp_output_adb.txt", "r") as f:
-            output = f.read()
+    try:
+        if type == "AT":
+            with open("tmp_output.txt", "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+        elif type == "ADB":
+            with open("tmp_output_adb.txt", "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+    except FileNotFoundError:
+        return ""
+    return ""
+
+def log_command_output(source, label):
+    output = readOutput(source)
+    if output:
+        print(f"\n\n{label} output:\n{output}\n\n")
+    else:
+        print(f"\n\n{label} output is empty.\n\n")
     return output
 
 def show_messagebox_at(x, y, title, content): # Show a customizable message box
+    app = QtWidgets.QApplication.instance()
+    if app is not None:
+        if qt_dialog_helper is None:
+            init_qt_dialog_helper()
+        if app.thread() != QtCore.QThread.currentThread():
+            done = threading.Event()
+            result = {}
+            qt_dialog_helper.request_message.emit(x, y, title, content, result, done)
+            done.wait()
+            return
+        msg = QtWidgets.QMessageBox()
+        msg.setWindowTitle(title)
+        msg.setText(content)
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msg.exec_()
+        return
+
     # Create a new top-level window
     box = tk.Tk() 
     box.title(title)
@@ -1669,6 +1771,20 @@ def smbdelay(x, y, title, content, delay=8):  # Show a message box with a delaye
 
 def contribution_prompt(x, y):  # Nicely formatted contribution/support message box
     uuid_str = str(get_public_hardware_uuid())
+
+    # If the Qt app is running, show a Qt dialog on the main thread. Creating a raw Tk window here
+    # (this is usually called from a worker thread after an unlock) hard-crashes the process on macOS.
+    app = QtWidgets.QApplication.instance()
+    if app is not None:
+        if qt_dialog_helper is None:
+            init_qt_dialog_helper()
+        if app.thread() != QtCore.QThread.currentThread():
+            done = threading.Event()
+            qt_dialog_helper.request_contribution.emit(uuid_str, done)
+            done.wait()
+        else:
+            qt_dialog_helper._show_contribution(uuid_str, threading.Event())
+        return
 
     box = tk.Tk()
     box.title("Support nPhoneKIT")
@@ -1749,7 +1865,7 @@ def modemUnlock(manufacturer, softUnlock=False): # Unlock the modem per-action i
                     else:
                         AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
                         AT.send("AT+ACTIVATE=0,0,0") # An activation sequence that unlocks the modem when paired with the above command.
-    elif os_config == "WINDOWS":
+    elif os_config in ("WINDOWS", "MACOS"): # macOS behaves like Windows here; without this branch the modem is never unlocked on Mac and AT+DEVCONINFO flakes out
         if manufacturer == "SAMSUNG": # Select the manufacturer to preload
             if softUnlock:
                 AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
@@ -1850,7 +1966,7 @@ def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
                     for command in ATcommands:
                         AT.send(command)
 
-                    output = readOutput("AT")
+                    output = log_command_output("AT", "AT")
 
                     if "error" in output.lower():
                         print(strings['failText'])
@@ -1906,7 +2022,7 @@ def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security p
                     for command in commands:
                         AT.send(command)
 
-                    output = readOutput("AT")
+                    output = log_command_output("AT", "AT")
 
                     if "error" in output.lower():
                         print(strings['failText'])
@@ -1920,6 +2036,7 @@ def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security p
                         show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
                         for command in ADBcommands:
                             ADB.send(command)
+                            log_command_output("ADB", f"ADB {command}")
                         print(strings['okText'])
                         print(strings['unlockSuccess'])
                         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Aug_To_Dec_2022", "Success"))
@@ -1985,8 +2102,24 @@ def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
                         print(strings['okText'])
                         print(strings['runUnlock'], end="")
                         show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
-                        for command in ADBcommands:
-                            ADB.send(command)
+                        # Wait for the phone to re-enumerate into ADB mode and for the user to accept the USB debugging prompt.
+                        # Without this, the adb commands below run before the device is ready (or authorized) and silently do nothing.
+                        state = ADB.wait_for_device()
+                        adb_failed = state != "device"
+                        if not adb_failed:
+                            for command in ADBcommands:
+                                ADB.send(command)
+                                out = log_command_output("ADB", f"ADB {command}")
+                                if "error:" in out.lower() or "no devices" in out.lower() or "unauthorized" in out.lower():
+                                    adb_failed = True
+                                    break
+                        if adb_failed:
+                            print(strings['failText'])
+                            print(strings['frpNotCompatible'])
+                            tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_2024", "Fail"))
+                            tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
+                            formrequest()
+                            return
                         print(strings['okText'])
                         print(strings['unlockSuccess'])
                         if model == "" or model == None:
@@ -2037,14 +2170,22 @@ def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch up
                     for command in commands:
                         AT.send(command)
 
-                    output = readOutput("AT")
+                    output = log_command_output("AT", "AT")
 
                     try:
                         print(strings['okText'])
                         print(strings['runUnlock'], end="")
                         show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
+                        # Wait for the phone to re-enumerate into ADB mode and for the user to accept the USB debugging prompt.
+                        # Without this, the adb commands below run before the device is ready (or authorized) and silently do nothing.
+                        state = ADB.wait_for_device()
+                        if state != "device":
+                            raise RuntimeError(f"No authorized ADB device (state: {state})")
                         for command in ADBcommands:
                             ADB.send(command)
+                            out = log_command_output("ADB", f"ADB {command}")
+                            if "error:" in out.lower() or "no devices" in out.lower() or "unauthorized" in out.lower():
+                                raise RuntimeError(f"ADB command failed: {command}")
                         print(strings['okText'])
                         print(strings['unlockSuccess'])
                         if model == "" or model == None:
@@ -2194,6 +2335,9 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
             if output == "" or output == None:
                 AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
                 output = readOutput("AT")
+                if output == "" or output == None:
+                    AT.send("AT+DEVCONINFO", True) # Third try with a serial reset, mirroring the GUI path which recovers flaky connections
+                    output = readOutput("AT")
                 if output == "" or output == None:
                     if showtext:
                         print(strings['failText'])
@@ -2384,7 +2528,7 @@ def imeicheck():
     if match:
         imei = match.group(1)
         messagebox.showinfo("nPhoneKIT", strings['imeiCheckGuide'])
-        if os_config == "WINDOWS":
+        if os_config in ("WINDOWS", "MACOS"): # macOS opens the browser the same way Windows does; without this the IMEI page never opens on Mac
             webbrowser.open_new_tab(f"https://www.imei.info/services/blacklist-simple/samsung/check-free/?imei={str(imei)}")
         elif os_config == "LINUX":
             url = f"https://www.imei.info/services/blacklist-simple/samsung/check-free/?imei={str(imei)}"
@@ -2395,10 +2539,29 @@ def imeicheck():
     else:
         print(strings['imeiNotFound'])
 
+def macos_libusb_present(): # Check whether libusb is installed so mtkclient can actually reach USB devices on macOS
+    import ctypes.util
+    if ctypes.util.find_library("usb-1.0") or ctypes.util.find_library("usb"):
+        return True
+    # find_library doesn't always search Homebrew's prefixes, so check the common install locations directly
+    candidates = [
+        "/opt/homebrew/lib/libusb-1.0.dylib",  # Apple Silicon Homebrew
+        "/usr/local/lib/libusb-1.0.dylib",     # Intel Homebrew
+        "/opt/local/lib/libusb-1.0.dylib",     # MacPorts
+    ]
+    return any(os.path.exists(p) for p in candidates)
+
 def mtkclient():
     if os_config == "WINDOWS":
         os.system('pip install -r deps/mtkclient/requirements.txt')
         os.system('python ./deps/mtkclient/mtk_gui.py')
+    elif os_config == "MACOS": # macOS was missing entirely; run mtkclient with the current interpreter (no sudo/apt like Linux)
+        if not macos_libusb_present(): # mtkclient can't talk to USB without libusb; bail early with guidance instead of a cryptic crash
+            print(strings['mtkLibusbMissing'])
+            show_messagebox_at(500, 200, "nPhoneKIT", strings['mtkLibusbMissing'])
+            return
+        os.system(f'"{sys.executable}" -m pip install -r deps/mtkclient/requirements.txt')
+        os.system(f'"{sys.executable}" ./deps/mtkclient/mtk_gui.py')
     elif os_config == "LINUX":
         #os.system('sudo pip install --no-deps statsd scrypt repoze.lru keystone-engine fusepy aniso8601 Yappi wrapt werkzeug WebOb vine unicorn tzdata testtools shiboken6 Routes rfc3986 pyusb pyflakes pycryptodomex pycryptodome pycodestyle psutil prometheus-client PrettyTable pbr PasteDeploy Paste netaddr msgpack mccabe itsdangerous iso8601 greenlet elementpath dnspython capstone cachetools blinker xmlschema testscenarios testresources stevedore SQLAlchemy PySide6-Essentials oslo.i18n oslo.context os-service-types Flask flake8 eventlet debtcollector amqp PySide6-Addons pysaml2 oslo.utils oslo.config kombu keystoneauth1 futurist Flask-RESTful dogpile.cache alembic pyside6 oslo.serialization oslo.middleware oslo.db oslo.concurrency python-keystoneclient pycadf osprofiler oslo.policy oslo.log oslo.upgradecheck oslo.service oslo.metrics oslo.cache oslo.messaging keystonemiddleware keystone --break-system-packages')
         #os.system('sudo python3 deps/mtkclient/mtk_gui.py')
@@ -2406,6 +2569,21 @@ def mtkclient():
         os.system("sudo bash -c 'source ./deps/venv/bin/activate && python3 ./deps/mtkclient/mtk_gui.py'")
 
 def tkinput(title="Enter Value", text="Please enter a value:", placeholder="", ok_text="OK", cancel_text="Cancel"):
+    app = QtWidgets.QApplication.instance()
+    if app is not None:
+        if qt_dialog_helper is None:
+            init_qt_dialog_helper()
+        if app.thread() != QtCore.QThread.currentThread():
+            done = threading.Event()
+            result = {}
+            qt_dialog_helper.request_input.emit(title, text, placeholder, ok_text, cancel_text, result, done)
+            done.wait()
+            return result.get("value")
+        value, ok = QtWidgets.QInputDialog.getText(None, title, text, text=placeholder)
+        if ok and value != placeholder:
+            return value
+        return None
+
     result = {"value": None}
 
     def on_submit():
@@ -2763,6 +2941,59 @@ class Worker(QtCore.QRunnable):
             self.signals.error.emit(str(e))
         finally:
             self.signals.finished.emit()
+
+class QtDialogHelper(QtCore.QObject):
+    request_message = QtCore.pyqtSignal(object, object, object, object, object, object)
+    request_input = QtCore.pyqtSignal(object, object, object, object, object, object, object)
+    request_contribution = QtCore.pyqtSignal(object, object)
+
+    def __init__(self):
+        super().__init__()
+        self.request_message.connect(self._show_message)
+        self.request_input.connect(self._show_input)
+        self.request_contribution.connect(self._show_contribution)
+
+    def _show_message(self, x, y, title, content, result, done):
+        msg = QtWidgets.QMessageBox()
+        msg.setWindowTitle(title)
+        msg.setText(content)
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msg.exec_()
+        result["value"] = True
+        done.set()
+
+    def _show_input(self, title, text, placeholder, ok_text, cancel_text, result, done):
+        value, ok = QtWidgets.QInputDialog.getText(None, title, text, text=placeholder)
+        if ok and value != placeholder:
+            result["value"] = value
+        else:
+            result["value"] = None
+        done.set()
+
+    def _show_contribution(self, uuid_str, done): # Qt support/contribution dialog, always built on the main thread (raw Tk here crashes macOS from a worker thread)
+        try:
+            msg = QtWidgets.QMessageBox()
+            msg.setWindowTitle("Support nPhoneKIT")
+            msg.setText(
+                "Want to help support nPhoneKIT, and get a special Contributor thank you "
+                "message on the README? Please fill out the quick form below.\n\n"
+                "You can (and should!) submit it whether the unlock worked flawlessly or "
+                "failed — it helps fix bugs for the future.\n\n"
+                f"Your unique submission code (prevents spam):\n{uuid_str}\n\n"
+                "Turn off 'Contribution Messages' in settings to hide this."
+            )
+            open_btn = msg.addButton("Open Form", QtWidgets.QMessageBox.AcceptRole)
+            msg.addButton("Close", QtWidgets.QMessageBox.RejectRole)
+            msg.exec_()
+            if msg.clickedButton() == open_btn:
+                clip = QtWidgets.QApplication.clipboard()
+                if clip is not None:
+                    clip.setText(uuid_str)
+                webbrowser.open("https://forms.gle/SM8Mjyoz43Jcwxzn8")
+        finally:
+            done.set()
+
+qt_dialog_helper = None
 
 # ------------ stdout redirector -> QTextEdit with token coloring ------------
 class QtRedirectText(QtCore.QObject):
@@ -3267,8 +3498,15 @@ class InstantTooltips(QtCore.QObject):
                 QtCore.QTimer.singleShot(self.hide_ms, QtWidgets.QToolTip.hideText)
 
 # ------------- entry point -------------
+def init_qt_dialog_helper():
+    global qt_dialog_helper
+    if qt_dialog_helper is None:
+        qt_dialog_helper = QtDialogHelper()
+
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
+    init_qt_dialog_helper()
     # apply tooltip palette for visibility
     pal = app.palette()
     pal.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor(42,42,42))
@@ -3294,7 +3532,7 @@ def is_root():
             return ctypes.windll.shell32.IsUserAnAdmin() != 0
         except Exception:
             return False
-    elif os_config == "LINUX":  # POSIX (Linux, macOS, etc)
+    elif os_config in ("LINUX", "MACOS"):  # POSIX (Linux, macOS, etc)
         return os.geteuid() == 0
 
 # Check if nPhoneKIT will be able to use serial ports:
