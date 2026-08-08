@@ -20,7 +20,7 @@
 
 ---
 
-# URGENT UPDATE INFORMATION: Recommended to read this [latest post](https://nlcky.solutions/?p=35) before using nPhoneKIT, for new and existing users.
+## Recommended to read this [latest post](https://nlcky.solutions/?p=35) before using nPhoneKIT, for new and existing users.
 
 ---
 
