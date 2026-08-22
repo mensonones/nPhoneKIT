@@ -19,16 +19,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install test dependencies
-        run: python -m pip install -r requirements-dev.txt
+      - name: Install runtime and test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Lint (ruff)
         run: python -m ruff check main.py nphonekit_core.py tests/
 
       - name: Byte-compile main.py (syntax check)
-        # Cheap guard: fails the build on any syntax error in the app entrypoint,
-        # even though main.py can't be fully imported in CI (it opens serial
-        # ports / starts threads at import time).
+        # Cheap guard for syntax errors in the application entrypoint.
         run: python -m py_compile main.py
 
       - name: Run tests
