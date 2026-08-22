@@ -102,11 +102,11 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
   - Download Zadig at https://zadig.akeo.ie/, then install the WinUSB and libusb-win drivers.
 - If using a Samsung device, also download and install the Samsung USB drivers at https://developer.samsung.com/android-usb-driver
 - Go to the latest release, download Source Code as ZIP.
-- Make sure you have Python and Pip installed. You can download both [at the official website](https://www.python.org/downloads/windows). (Note: Make sure to download a version such as Python 3.10, not newer.)
+- Make sure you have Python and Pip installed. You can download both [at the official website](https://www.python.org/downloads/windows). (nPhoneKIT is tested on Python 3.10–3.12.)
 - Extract the zip, open Command Prompt as Administrator, and cd into the source code directory.
 - Run the following command:
   ```
-  pip install pyserial requests pyqt5 && pip install -r ./deps/mtkclient/requirements.txt
+  pip install -r requirements.txt && pip install -r ./deps/mtkclient/requirements.txt
   ```
 - Then, (every time you want to run nPhoneKIT you will need to run this in the source folder) (before running the below command, make sure Command Prompt is started as Administrator):
   ```
@@ -210,9 +210,32 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
 
 ---
 
-## ⚠️⚠️⚠️ Important Notes
+## 🛠️ Development & Contributing
 
-- **nPhoneKIT has a feature called "Success Checks" which will contact external servers, telling them whether a said feature worked on your phone model. No personal data is sent. This helps improve nPhoneKIT. (You may inspect the full success check code if you would like, this is only used to improve and debug. Personal identifiers are anonymized, hashed, and made untraceable)**
+nPhoneKIT is organized as `main.py` (the application shell) plus focused
+`nphonekit_*` modules, covered by a unit-test suite that runs in CI on
+Python 3.10 and 3.12.
+
+Set up a dev environment and run the same checks CI does:
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check .        # lint
+pytest              # tests
+```
+
+- **Bugs / feature requests:** please open a GitHub issue.
+- **Security issues:** see [SECURITY.md](.github/SECURITY.md) — please report privately.
+
+---
+
+## 🔒 Privacy
+
+- **Automatic telemetry is disabled in this build. nPhoneKIT does not contact external servers on its own.**
+- Historically a "Success Checks" feature reported (anonymized, hashed) whether an action worked on a phone model. It is now turned off at the source (`TELEMETRY_ENABLED = False` in `main.py`) and can only be re-enabled by editing the code.
+- Automatic update checks are also **off by default**.
+- The only network access is **user-initiated**: submitting a feature/bug report, opening the IMEI-check page in your browser, or an opt-in update check.
 
 ---
 
