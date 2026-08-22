@@ -118,6 +118,15 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
 
 ### Linux (Debian-based distro) 🐧
 
+> [!TIP]
+> **One command (Debian/Ubuntu):** from the source folder, run
+> ```bash
+> ./run.sh
+> ```
+> It installs every dependency (Python packages + the Qt system libraries + adb)
+> and launches nPhoneKIT. Already have the deps? Use `./run.sh --no-install`.
+> The manual steps below do the same thing by hand.
+
 > [!CAUTION]
 > **Please** subscribe to the NlckySolutions YouTube channel to support nPhoneKIT! It's just one click, but helps a ton! If everyone who saw this subscribed, there'd be 10x+ more frequent updates!
 
