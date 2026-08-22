@@ -35,4 +35,4 @@ def test_main_imports_without_starting_runtime(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
-    assert (tmp_path / "settings.json").exists()
+    assert not (tmp_path / "settings.json").exists()
