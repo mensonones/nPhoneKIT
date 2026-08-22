@@ -4,6 +4,7 @@ Run with:  python3 -m pytest
 """
 
 import nphonekit_core as core
+import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,30 @@ def test_merge_corrupt_loaded_falls_back_to_defaults():
 def test_merge_does_not_mutate_defaults():
     core.merge_settings(DEFAULTS, {"dark_theme": False})
     assert DEFAULTS["dark_theme"] is True
+
+
+def test_load_settings_reads_json_object(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text('{"dark_theme": false}', encoding="utf-8")
+
+    assert core.load_settings(path) == {"dark_theme": False}
+
+
+def test_load_settings_rejects_non_object(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not a JSON object"):
+        core.load_settings(path)
+
+
+def test_save_settings_round_trip(tmp_path):
+    path = tmp_path / "settings.json"
+    expected = {"dark_theme": False, "future_flag": 1}
+
+    core.save_settings(path, expected)
+
+    assert core.load_settings(path) == expected
 
 
 # ---------------------------------------------------------------------------

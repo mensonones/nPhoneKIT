@@ -100,10 +100,7 @@ default_settings = {
 
 if SETTINGS_PATH.exists(): # If settings exist, load them, otherwise use defaults.
     try:
-        with open(SETTINGS_PATH, "r") as f:
-            loaded = json.load(f)
-        if not isinstance(loaded, dict):
-            raise ValueError("settings file is not a JSON object")
+        loaded = nphonekit_core.load_settings(SETTINGS_PATH)
     except (json.JSONDecodeError, ValueError, OSError) as e:
         # A corrupt or unreadable settings file used to be a hard crash on startup.
         print(f"[nPhoneKIT] Could not read settings ({e}); falling back to defaults.")
@@ -136,20 +133,17 @@ strings = load_strings("strings.xml") # Load almost every string from strings.xm
 
 # Load settings
 def load_settings():
-    with open(SETTINGS_PATH, "r") as f:
-        return json.load(f)
+    return nphonekit_core.load_settings(SETTINGS_PATH)
 
 # Save settings
 def save_settings(new_settings):
-    with open(SETTINGS_PATH, "w") as f:
-        json.dump(new_settings, f, indent=2)
+    nphonekit_core.save_settings(SETTINGS_PATH, new_settings)
 
 
 def persist_settings():
     """Persist the merged settings during application startup, not import."""
     try:
-        with open(SETTINGS_PATH, "w") as f:
-            json.dump(settings, f, indent=2)
+        nphonekit_core.save_settings(SETTINGS_PATH, settings)
     except OSError as e:
         print(f"[nPhoneKIT] Could not write settings: {e}")
 
