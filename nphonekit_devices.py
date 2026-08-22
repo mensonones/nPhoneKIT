@@ -287,13 +287,20 @@ class SerialManager:
                     pass
         elif system == "Darwin":
             ports = glob.glob("/dev/tty.usb*")
-            chosen, note = nphonekit_core.select_serial_port(ports)
+            chosen, _ = nphonekit_core.select_serial_port(ports)
+            note = nphonekit_core.multi_device_note(
+                [p for p in list_ports.comports() if "tty.usb" in (p.device or "")]
+            )
             if note:
                 print(note)
             return chosen
         else:
             ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
-            chosen, note = nphonekit_core.select_serial_port(ports)
+            chosen, _ = nphonekit_core.select_serial_port(ports)
+            note = nphonekit_core.multi_device_note([
+                p for p in list_ports.comports()
+                if (p.device or "").startswith(("/dev/ttyACM", "/dev/ttyUSB"))
+            ])
             if note:
                 print(note)
             return chosen

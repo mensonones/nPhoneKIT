@@ -272,6 +272,56 @@ def select_serial_port(ports) -> tuple[Optional[str], Optional[str]]:
     return chosen, note
 
 
+def _serial_device_identity(port):
+    """Identity that groups serial interfaces belonging to the same phone.
+
+    A single device commonly exposes several serial interfaces (ttyACM0/1/...),
+    all sharing one USB VID/PID/serial-number. Ports without any USB identity
+    (virtual/legacy serial) are treated as distinct, keyed by their path.
+    ``port`` is a pyserial ``ListPortInfo``-like object.
+    """
+    vid = getattr(port, "vid", None)
+    pid = getattr(port, "pid", None)
+    serial_number = getattr(port, "serial_number", None)
+    if vid is None and pid is None and serial_number is None:
+        return ("path", getattr(port, "device", None))
+    return ("usb", vid, pid, serial_number)
+
+
+def distinct_serial_devices(ports) -> dict:
+    """Group ``list_ports.comports()``-like entries by physical device.
+
+    Returns a mapping of identity -> list of ports for that device.
+    """
+    groups: dict = {}
+    for port in ports or []:
+        groups.setdefault(_serial_device_identity(port), []).append(port)
+    return groups
+
+
+def multi_device_note(ports) -> Optional[str]:
+    """Warn only when more than one distinct physical device is connected.
+
+    Unlike a raw port count, this groups a phone's multiple serial interfaces
+    into one device (via USB VID/PID/serial), so the note fires for genuinely
+    separate devices -- the case that risks acting on the wrong phone -- and not
+    for a normal single phone that exposes several interfaces. Returns None when
+    zero or one device is present.
+    """
+    groups = distinct_serial_devices(ports)
+    if len(groups) <= 1:
+        return None
+    labels = []
+    for port_list in groups.values():
+        labels.append(", ".join(sorted(
+            getattr(p, "device", "?") or "?" for p in port_list
+        )))
+    return (
+        f"Multiple devices detected ({'; '.join(sorted(labels))}). "
+        "Connect only the target device so operations can't act on the wrong one."
+    )
+
+
 def usable_devices(pairs: list[tuple[str, str]]) -> list[str]:
     """Return serials of devices in the ready ``device`` state."""
     return [serial for serial, state in pairs if state == "device"]
