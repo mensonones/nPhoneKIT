@@ -43,6 +43,7 @@ from functools import partial # Register button clicks to functions
 import shutil # Fastboot partition eraser for Motorola
 import shlex
 import importlib.util # Self diagnostics of errors
+import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
 import tempfile
 import textwrap
@@ -577,17 +578,23 @@ def check_serial_permissions():
         # Serial device groups used across most distros
         serial_groups = ["dialout", "uucp", "lock", "tty"]
 
+        # Gather the groups this user belongs to. Previously `user_groups` was
+        # never defined, so this check raised NameError at startup on Linux.
+        try:
+            user_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+        except Exception:
+            user_groups = []
+
         # Also check primary group ID (some distros put uucp as primary)
         try:
             primary_group = grp.getgrgid(os.getgid()).gr_name
             user_groups.append(primary_group)
-        except:
+        except Exception:
             pass
 
         # Check if user is good
-        for g in serial_groups:
-            if g in user_groups:
-                return True  # Permissions OK
+        if nphonekit_core.has_required_group(user_groups, serial_groups):
+            return True  # Permissions OK
 
         # If we reach here, user is missing required groups
         # Decide which command to show based on distro
