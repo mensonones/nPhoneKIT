@@ -1,11 +1,8 @@
 # Ruff configuration for nPhoneKIT.
 #
-# The lint gate currently runs only against the newer, clean modules
-# (nphonekit_core.py and tests/). main.py is intentionally not linted yet: it
-# is a large legacy file with pre-existing findings (unused vars, etc.) that
-# would turn CI red. It will be brought under lint during the package migration.
-#
+# The lint gate covers the application entrypoint and the unit-tested core.
 # The vendored deps/mtkclient tree is never linted here.
+#
 
 target-version = "py310"
 line-length = 100

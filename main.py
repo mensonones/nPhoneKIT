@@ -12,6 +12,8 @@
 # IMPORTS AND WHY EACH ONE IS NEEDED
 
 import time # Waiting before executing something
+import math
+import multiprocessing
 import os # Executing most commands
 import tkinter as tk # Main GUI (deprecated, slowly being removed)
 from tkinter import ttk # Styling for GUI (deprecated)
@@ -33,11 +35,7 @@ import hashlib # Hashing strings
 import webbrowser # Opening browser to any page
 import xml.etree.ElementTree as ET # Importing strings.xml
 from PyQt5 import QtCore, QtGui, QtWidgets # GUI
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem
-)
-from PyQt5.QtCore import Qt, QTimer, QPointF
-from PyQt5.QtGui import QPainter, QPen, QFont
+from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
 from functools import partial # Register button clicks to functions
 import shutil # Fastboot partition eraser for Motorola
@@ -45,6 +43,7 @@ import shlex
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
+from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
 
@@ -246,14 +245,13 @@ def self_fix_serial():
 
     if ERROR_CODE == 0:
         print("[nPhoneKIT (Self-Fix)] Self-fix succeeded!")
-        from serial.tools import list_ports # Listing connected devices
     else:
         print(f"[nPhoneKIT (Self-Fix)] Failed to fix the error. Please open a GitHub issue with the error code: {ERROR_CODE}")
 
 # Imports that have error handling because they are sometimes not installed or are the cause of another error
 try:
-    from serial.tools import list_ports # Listing connected devices
-    import serial # Communicating with device
+    from serial.tools import list_ports  # Listing connected devices; late for self-fix bootstrap  # noqa: E402
+    import serial  # Communicating with device; late for self-fix bootstrap  # noqa: E402
 except ModuleNotFoundError:
     print("[nPhoneKIT] PySerial Error, wasn't able to import serial module.")
     x = input("Run Self-Fix Diagnostics? (RECOMMENDED, THIS USUALLY FIXES THE ISSUE) (y/n):")
@@ -683,13 +681,6 @@ async def preload_samsung_modem(serman2):
         preload_error = True
 
     preload_done.set()
-
-# tk, ttk, font, datetime, timedelta are already imported at the top of the file
-# (this block previously re-imported them, flagged by ruff as F811).
-import math
-import threading
-import multiprocessing
-from typing import Tuple
 
 def get_os_info():
     info = {}
