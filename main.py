@@ -449,10 +449,10 @@ class SerialManagerWindows: # Version of SerialManager class specifically for Wi
             if self.debug:
                 print(strings['sermanWinConClosed'])
 
-if os_config == "WINDOWS": # Choose which serial manager to use based on OS
-    serman = SerialManagerWindows()
-elif os_config in ("LINUX", "MACOS"):
-    serman = SerialManager()
+# The active serial manager is created by run_app(), not while importing this
+# module.  Keeping the reference here preserves the existing AT API without
+# opening a device during imports or tests.
+serman = None
 
 class AT:
     def send(command, not_first=False):
@@ -3521,31 +3521,45 @@ def is_root():
     elif os_config in ("LINUX", "MACOS"):  # POSIX (Linux, macOS, etc)
         return os.geteuid() == 0
 
-# Check if nPhoneKIT will be able to use serial ports:
-
-if os_config == "LINUX":
-    if not check_serial_permissions():
-        sys.exit(0)
-elif os_config == "WINDOWS":
-    if not is_root():
-        if not DEBUGMODE:
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showwarning("nPhoneKIT", strings['sudoReqdError'])
-            sys.exit(1)
-
-if update_check:
-    check_for_update()
-
-serman1 = SerialManager()
+serman1 = None
 
 def preload_thread():
     asyncio.run(preload_samsung_modem(serman1))
 
-threading.Thread(target=preload_thread, daemon=True).start()
 
-if __name__ == "__main__": # If directly opened, start nPhoneKIT
+def run_app():
+    """Perform runtime setup and start the GUI.
+
+    Importing this module defines the application API only. Permission checks,
+    serial connections, update checks, and background threads belong to the
+    executable entrypoint and therefore happen only when the app is launched.
+    """
+    global serman, serman1
+
+    if os_config == "LINUX":
+        if not check_serial_permissions():
+            return
+    elif os_config == "WINDOWS" and not is_root() and not DEBUGMODE:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("nPhoneKIT", strings['sudoReqdError'])
+        sys.exit(1)
+
+    if update_check:
+        check_for_update()
+
+    if os_config == "WINDOWS":
+        serman = SerialManagerWindows()
+    else:
+        serman = SerialManager()
+    serman1 = SerialManager()
+    threading.Thread(target=preload_thread, daemon=True).start()
+
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))
     ttthread.start() # Sends basic, anonymized success_checks info with only the model number.
     rt() # Flush the buffer from previous runs of nPhoneKIT just in case
     main() # Start the main GUI (with a cool animation)
+
+
+if __name__ == "__main__":
+    run_app()
