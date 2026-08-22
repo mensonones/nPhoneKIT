@@ -102,13 +102,28 @@ default_settings = {
     "contributionsuggestions": True
 }
 
-if SETTINGS_PATH.exists(): # If settings, load, otherwise use default settings.
-    with open(SETTINGS_PATH, "r") as f:
-        settings = json.load(f)
+if SETTINGS_PATH.exists(): # If settings exist, load them, otherwise use defaults.
+    try:
+        with open(SETTINGS_PATH, "r") as f:
+            loaded = json.load(f)
+        if not isinstance(loaded, dict):
+            raise ValueError("settings file is not a JSON object")
+    except (json.JSONDecodeError, ValueError, OSError) as e:
+        # A corrupt or unreadable settings file used to be a hard crash on startup.
+        print(f"[nPhoneKIT] Could not read settings ({e}); falling back to defaults.")
+        loaded = {}
+    # Merge over defaults so a settings file written by an older version (missing
+    # keys added later) can't raise KeyError below and prevent the app opening.
+    settings = {**default_settings, **loaded}
 else:
     settings = default_settings.copy()
+
+# Persist the (possibly newly-merged) settings so the file stays in sync with the schema.
+try:
     with open(SETTINGS_PATH, "w") as f:
         json.dump(settings, f, indent=2)
+except OSError as e:
+    print(f"[nPhoneKIT] Could not write settings: {e}")
 
 dark_theme = settings['dark_theme']
 hacker_font = settings['hacker_font']

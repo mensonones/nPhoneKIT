@@ -1,2 +1,4 @@
 nphonekit.js
 .notfirst
+__pycache__/
+*.pyc
