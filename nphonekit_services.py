@@ -1,6 +1,8 @@
 """Small service clients used by the nPhoneKIT application."""
 
 import time
+import json
+import urllib.request
 
 try:
     import requests
@@ -39,3 +41,18 @@ class FeedbackClient:
 
     def bug_report(self, description, uuid, version):
         return self.submit("bug", description, uuid, version)
+
+
+class UpdateClient:
+    """Read the latest GitHub release for the application."""
+
+    def __init__(self, repository="nlckysolutions/nPhoneKIT", urlopen=urllib.request.urlopen):
+        self.url = f"https://api.github.com/repos/{repository}/releases/latest"
+        self.urlopen = urlopen
+
+    def latest(self):
+        with self.urlopen(self.url, timeout=4) as response:
+            data = json.loads(response.read().decode())
+        raw_version = data["tag_name"]
+        version = raw_version.lstrip("v").lstrip("ⅴ")
+        return raw_version, version
