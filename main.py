@@ -54,7 +54,12 @@ from nphonekit_action_support import (
     unlock_modem,
 )
 from nphonekit_samsung_actions import SamsungFrpActions
-from nphonekit_other_actions import macos_libusb_present, run_mtkclient, run_moto_fastboot_frp
+from nphonekit_other_actions import (
+    macos_libusb_present,
+    run_lg_screen_unlock,
+    run_mtkclient,
+    run_moto_fastboot_frp,
+)
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1096,38 +1101,19 @@ def general_frp_unlock(): # Not completed yet
         # to do, add FULLY universal FRP unlock
         print(strings['deviceNotSupportedUniversal'])
 
-def LG_screen_unlock(): # Screen unlock on supported LG devices *untested*
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "lg_unlock":
-            picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:
-                info = verinfo(False)
-                model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output (may not work)
-
-                show_messagebox_at(500, 200, "nPhoneKIT", strings['lgScreenUnlockSupportedDevs'])
-                print(strings['lgRunningScreenUnlock'], end="")
-                # Prepare phone for unlock
-                show_messagebox_at(600, 100, "nPhoneKIT", strings['lgScreenUnlockSteps'])
-
-                time.sleep(1)
-                if AT.usbswitch("-l", "LG Screen Unlock"):
-                    rt() # Flush the output buffer
-                    AT.send('AT%KEYLOCK=0') # This AT command SHOULD unlock the screen instantly. (yes, one command.)
-                    with open("tmp_output.txt", "r") as f:
-                        output = f.read()
-                    # debug only: print("\n\nOutput: \n\n" + output + "\n\n")
-                    if "error" in output or "Error" in output:
-                        print(strings['failText'] + "\n")
-                        print(strings['lgScreenUnlockError'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "LG_Screen_Unlock", "Fail"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                    else:
-                        rt()
-                        print(strings['okText'] + "\n")
-                        print(strings['lgScreenUnlockSuccess'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "LG_Screen_Unlock", "Success"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
+def LG_screen_unlock():
+    run_lg_screen_unlock(
+        methods=load_unlock_methods("unlocks.json"),
+        confirm_method=stw,
+        strings=strings,
+        verinfo=verinfo,
+        at=AT,
+        flush_output=rt,
+        show_messagebox=show_messagebox_at,
+        success_checks=lambda *args: threading.Thread(target=success_checks, args=args).start(),
+        hardware_uuid=get_public_hardware_uuid,
+        read_output=lambda: Path("tmp_output.txt").read_text(),
+    )
 
 def MotoFastbootFRP1():
     run_moto_fastboot_frp(
