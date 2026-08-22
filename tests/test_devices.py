@@ -1,6 +1,7 @@
 """Unit tests for device clients without requiring connected hardware."""
 
 from types import SimpleNamespace
+import threading
 
 import pytest
 
@@ -90,3 +91,21 @@ def test_serial_manager_send_reads_fake_serial():
 
     assert manager.send("AT+TEST") == "OK"
     assert manager.ser.written == [b"AT+TEST\r\n"]
+
+
+def test_at_sends_through_configured_manager(monkeypatch, tmp_path):
+    class FakeManager:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command):
+            self.commands.append(command)
+            return "OK"
+
+    manager = FakeManager()
+    devices.AT.configure(manager, lambda: False, threading.Event(), lambda: None, {})
+    monkeypatch.chdir(tmp_path)
+
+    assert devices.AT.send("AT+TEST") is True
+    assert manager.commands == ["AT+TEST"]
+    assert (tmp_path / "tmp_output.txt").read_text(encoding="utf-8") == "OK"

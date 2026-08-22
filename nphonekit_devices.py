@@ -253,3 +253,54 @@ class SerialManagerWindows:
             self.ser.close()
             if self.debug:
                 print(self.strings.get("sermanWinConClosed", "Serial connection closed."))
+
+
+class AT:
+    """AT command adapter around a configured serial manager."""
+
+    _serial_manager = None
+    _enable_preload = staticmethod(lambda: False)
+    _preload_done = None
+    _rt_callback = staticmethod(lambda: None)
+    _strings = {}
+
+    @classmethod
+    def configure(cls, serial_manager, enable_preload, preload_done, rt_callback, strings):
+        cls._serial_manager = serial_manager
+        cls._enable_preload = staticmethod(enable_preload)
+        cls._preload_done = preload_done
+        cls._rt_callback = staticmethod(rt_callback)
+        cls._strings = strings
+
+    @classmethod
+    def send(cls, command, not_first=False):
+        cls._rt_callback()
+        if cls._enable_preload():
+            cls._preload_done.wait()
+        if not_first:
+            cls._serial_manager.reset()
+        with open("tmp_output.txt", "w", encoding="utf-8") as output_file:
+            try:
+                result = cls._serial_manager.send(command)
+                if result is None:
+                    result = cls._serial_manager.send(command)
+                    if result is None:
+                        result = ""
+                output_file.write(result)
+            except Exception:
+                cls._serial_manager.reset()
+                time.sleep(1)
+                try:
+                    result = cls._serial_manager.send(command)
+                    if result is None:
+                        result = cls._serial_manager.send(command)
+                        if result is None:
+                            result = ""
+                    output_file.write(result)
+                except Exception:
+                    print(cls._strings.get("deviceConCheckNotPlugged", "Device is not connected."))
+        return True
+
+    @staticmethod
+    def usbswitch(arg, action):
+        return True
