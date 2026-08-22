@@ -361,3 +361,56 @@ class AT:
     @staticmethod
     def usbswitch(arg, action):
         return True
+
+
+class SamsungPreloader:
+    """Detect a Samsung USB device and run the modem preload sequence."""
+
+    def __init__(self, serial_manager, strings, debug_info, enabled, set_enabled, set_error, done, select_brand, probe_usb=None):
+        self.serial_manager = serial_manager
+        self.strings = strings
+        self.debug_info = debug_info
+        self.enabled = enabled
+        self.set_enabled = set_enabled
+        self.set_error = set_error
+        self.done = done
+        self.select_brand = select_brand
+        self.probe_usb = probe_usb or self._probe_usb
+
+    @staticmethod
+    def _probe_usb(system):
+        if system == "Linux":
+            return subprocess.check_output(["lsusb"]).decode().lower()
+        if system == "Darwin":
+            return subprocess.check_output(["system_profiler", "SPUSBDataType"]).decode().lower()
+        if system == "Windows":
+            return subprocess.check_output(["powershell", "Get-PnpDevice"]).decode().lower()
+        return ""
+
+    async def run(self):
+        if not self.enabled():
+            self.done.set()
+            return
+        try:
+            output = self.probe_usb(platform.system())
+            if "samsung" in output.lower():
+                if self.debug_info:
+                    print(self.strings.get("samPreloadUsbDetected", "Samsung USB device detected."))
+                self.select_brand("Samsung")
+                self.serial_manager.send("AT+SWATD=0")
+                self.serial_manager.send("AT+ACTIVATE=0,0,0")
+                if self.debug_info:
+                    print(self.strings.get("samPreloadComplete", "Samsung modem preload complete."))
+                self.set_error(False)
+            else:
+                if self.debug_info:
+                    print(self.strings.get("samNoUsbFound", "No Samsung USB device found."))
+                self.set_enabled(False)
+                self.set_error(True)
+        except Exception as error:
+            if self.debug_info:
+                print(self.strings.get("samPreloadError", "Samsung preload failed."), error)
+            self.set_enabled(False)
+            self.set_error(True)
+        finally:
+            self.done.set()
