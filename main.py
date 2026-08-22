@@ -306,36 +306,6 @@ def show_messagebox_at(x, y, title, content): # Show a customizable message box
     box.grab_set()
     box.wait_window()  # <--- THIS is what blocks until closed
 
-def smbdelay(x, y, title, content, delay=8):  # Show a message box with a delayed close button and disabled X button
-    box = tk.Tk()
-    box.title(title)
-    box.geometry(f"+{x}+{y}")
-    box.resizable(False, False)
-
-    tk.Label(box, text=content, font=("Segoe UI", 12), padx=20, pady=20).pack()
-
-    # Button starts disabled
-    ok_button = tk.Button(box, text=f"OK ({delay})", width=10, state="disabled", command=box.destroy)
-    ok_button.pack(pady=(0, 15))
-
-    # Disable the X button — do nothing on close request
-    box.protocol("WM_DELETE_WINDOW", lambda: None)
-
-    # Countdown logic
-    def countdown(remaining):
-        if remaining > 0:
-            ok_button.config(text=f"OK ({remaining})")
-            box.after(1000, countdown, remaining - 1)
-        else:
-            ok_button.config(text="OK", state="normal")
-
-    countdown(delay)
-
-    # Keep it modal — BLOCK everything until this window closes
-    box.attributes("-topmost", True)
-    box.grab_set()
-    box.wait_window()
-
 def contribution_prompt(x, y):  # Nicely formatted contribution/support message box
     uuid_str = str(get_public_hardware_uuid())
 
