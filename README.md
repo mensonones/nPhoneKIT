@@ -225,6 +225,17 @@ ruff check .        # lint
 pytest              # tests
 ```
 
+> [!NOTE]
+> On Linux, PyQt5 installed from **pip** (as above) does not pull in the Qt
+> "xcb" platform system libraries, so the GUI fails to start with
+> `Could not load the Qt platform plugin "xcb"`. Install them once with:
+> ```bash
+> ./scripts/install-linux-deps.sh
+> ```
+> This is **not** needed if you install PyQt5 from your distro
+> (`python3-pyqt5` / `pyqt5`), which already depends on them — that's the case
+> for the apt/pacman install steps above.
+
 - **Bugs / feature requests:** please open a GitHub issue.
 - **Security issues:** see [SECURITY.md](.github/SECURITY.md) — please report privately.
 
