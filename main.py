@@ -16,7 +16,6 @@ import tkinter as tk # Main GUI (deprecated, slowly being removed)
 from tkinter import messagebox # Opening message/warning boxes
 from pathlib import Path # Importing settings
 import sys # Getting basic system info
-import re # Finding strings within text
 import platform # Checking the current OS
 import threading # Using multiple threads
 import webbrowser # Opening browser to any page
@@ -478,14 +477,14 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
         if not output:
             print(strings['failText'])
             print(strings['verInfoCheckConn'])
-            model = re.search(r'Model:\s*(\S+)', output)
+            model = nphonekit_core.parse_model(output)
             tthread = threading.Thread(target=success_checks, args=(
                 get_public_hardware_uuid(), model, "VersionInfo", "Fail"
             ))
             tthread.start()
         else:
             print(strings['okText'])
-            model = re.search(r'Model:\s*(\S+)', output)
+            model = nphonekit_core.parse_model(output)
             tthread = threading.Thread(target=success_checks, args=(
                 get_public_hardware_uuid(), model, "VersionInfo", "Success"
             ))
@@ -501,7 +500,7 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
             elif output and showtext:
                 print(strings['okText'])
             output = parse_devconinfo(output) # Make the output actually readable (parse the output)
-            model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
+            model = nphonekit_core.parse_model(output) # Extract only the model no. from the output
             if output == "" or output is None:
                 tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Fail"))
                 tthread.start() # Sends basic, anonymized success_checks info with only the model number.
@@ -513,7 +512,7 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
 
 def wifitest(): # Opens a hidden WLANTEST menu on Samsung devices
     info = verinfo(False)
-    model = re.search(r'Model:\s*(\S+)', info)
+    model = nphonekit_core.parse_model(info)
 
     print(strings['openingWifitest'], end="")
     MTPmenu()
@@ -532,7 +531,7 @@ def reboot(): # Crash an android phone to reboot
     print(strings['crashingToReboot'], end="")
     MTPmenu()
     info = verinfo(False)
-    model = re.search(r'Model:\s*(\S+)', info)
+    model = nphonekit_core.parse_model(info)
     result = SamsungRebootClient(AT, rt, readOutput).crash_reboot()
     if result is False:
         print(strings['failText'])
@@ -549,7 +548,7 @@ def reboot_sam(): # Crash a Samsung phone to reboot
     MTPmenu()
     modemUnlock("SAMSUNG", True)
     info = verinfo(False)
-    model = re.search(r'Model:\s*(\S+)', info)
+    model = nphonekit_core.parse_model(info)
     result = SamsungRebootClient(AT, rt, readOutput).crash_reboot()
     if result is False:
         print(strings['failText'])
@@ -592,7 +591,7 @@ def reboot_download_sam(): # Reboot Samsung device to download mode
     SamsungDownloadModeClient(AT, samsung_modem_unlocker).enter(basic_success_checks)
     if basic_success_checks:
         info = verinfo(False)
-        model = re.search(r'Model:\s*(\S+)', info)
+        model = nphonekit_core.parse_model(info)
         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_DOWNLOAD_SAM", "Fail"))
         tthread.start() # Sends basic, anonymized success_checks info with only the model number.
     print(" OK")

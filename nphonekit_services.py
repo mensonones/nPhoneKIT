@@ -99,7 +99,7 @@ class TelemetryClient:
         if first:
             self._post("success_checks_v2", {
                 "timestamp": self.clock(), "uuid": str(identifier),
-                "model": model.group(1) if model else "Unknown",
+                "model": model if model else "Unknown",
                 "action": action, "status": status,
                 "phoneKITversion": self.version, "errors": self.pull_errors(),
             })
