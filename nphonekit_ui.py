@@ -160,7 +160,7 @@ class QtRedirectText(QtCore.QObject):
             parts.append(text[last:match.start()])
             token = match.group(1).strip()
             color = OK_COLOR if token == "OK" else FAIL_COLOR
-            parts.append(f'<span style="color:{color}; font-weight:700;"> {token}</span>')
+            parts.append(f'<span style="color:{color}; font-weight:700;">&nbsp;{token}</span>')
             last = match.end()
         parts.append(text[last:])
         html = "".join(parts).replace("\n", "<br>")

@@ -221,6 +221,8 @@ def parse_devconinfo(raw_input: str) -> str:
             match = re.match(r'(\w+)\((.*?)\)', item)
             if match:
                 key, value = match.groups()
+                if key in {"MNC", "MCC"}:
+                    value = value.lstrip(",")
                 parsed_output.append(
                     f"{friendly_names.get(key, key)}: {value if value else 'N/A'}"
                 )
