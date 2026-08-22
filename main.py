@@ -174,7 +174,6 @@ def self_fix_serial():
     ERR_WRONG_SERIAL_PACKAGE = 1002
     ERR_PIP_FAILED = 1003
     ERR_IMPORT_SHADOWED = 1004
-    ERR_UNKNOWN = 1999
 
     print(f"[nPhoneKIT (Self-Fix)] Python: {sys.executable}")
 
@@ -315,7 +314,7 @@ class SerialManager: # AT command sender via class
                     s = serial.Serial(f"COM{i}")
                     s.close()
                     return f"COM{i}"
-                except:
+                except Exception:
                     pass
         elif system == "Darwin":  # macOS
             ports = glob.glob("/dev/tty.usb*")
@@ -1535,7 +1534,7 @@ def check_for_update():
                         strings['updateAvail'],
                         strings['updateAvailString'].format(version=VERSION, latest_version=latest_version)
                     )
-    except Exception as e:
+    except Exception:
         print(strings['updateCheckFailed'])
 
 def get_public_hardware_uuid():
@@ -1574,9 +1573,9 @@ def success_checks(uuid, model, action, status, first=True):
             }
 
             try:
-                response = requests.post(f"{FIREBASE_URL}/success_checks_v2.json", json=data)
-            except Exception as e:
-                silentError = 1
+                requests.post(f"{FIREBASE_URL}/success_checks_v2.json", json=data)
+            except Exception:
+                pass
         else:
             data = {
                 "timestamp": time.time(), # Same stuff as above, in order to get an anonymous active user estimation
@@ -1588,9 +1587,9 @@ def success_checks(uuid, model, action, status, first=True):
             }
 
             try:
-                response = requests.post(f"{FIREBASE_URL}/success_checks.json", json=data)
-            except Exception as e:
-                silentError = 1
+                requests.post(f"{FIREBASE_URL}/success_checks.json", json=data)
+            except Exception:
+                pass
 
             if not os.path.isfile(".notfirst"):
                 data = {
@@ -1600,10 +1599,10 @@ def success_checks(uuid, model, action, status, first=True):
                 }
 
                 try:
-                    response = requests.post(f"{FIREBASE_URL}/success_checks+oi.json", json=data)
+                    requests.post(f"{FIREBASE_URL}/success_checks+oi.json", json=data)
                     Path(__file__).parent.joinpath(".notfirst").touch()
-                except Exception as e:
-                    silentError = 1
+                except Exception:
+                    pass
 
 # =============================================
 #  Different instructions for the user
@@ -2123,7 +2122,7 @@ def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch up
                     for command in commands:
                         AT.send(command)
 
-                    output = log_command_output("AT", "AT")
+                    log_command_output("AT", "AT")
 
                     try:
                         print(strings['okText'])
@@ -2225,10 +2224,10 @@ def MotoFastbootFRP1():
                     show_messagebox_at(200, 200, "nPhoneKIT", msg)
                     return
 
-                ecf_stat = eraser.erase_config(serial)
-                eps_stat = eraser.erase_persist(serial)
-                efr_stat = eraser.erase_frp(serial)
-                wdc_stat = eraser.wipe_data_cache(serial)
+                eraser.erase_config(serial)
+                eraser.erase_persist(serial)
+                eraser.erase_frp(serial)
+                eraser.wipe_data_cache(serial)
 
 # ==============================================
 #  Simple functions that do stuff to the device
@@ -2642,7 +2641,7 @@ def featureRequest():
             status = "Feature request submitted successfully!  OK"
         else:
             status = "Error: Feature request failed to send. Check your connection?  FAIL"
-    except Exception as e:
+    except Exception:
         status = "Error: Feature request failed to send. Check your connection?  FAIL"
     print(status)
 
@@ -2673,7 +2672,7 @@ def bugReport():
             status = "Bug report submitted successfully!  OK"
         else:
             status = "Error: Bug report failed to send. Check your connection?  FAIL"
-    except Exception as e:
+    except Exception:
         status = "Error: Bug report failed to send. Check your connection?  FAIL"
     print(status)
 
