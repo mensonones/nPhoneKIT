@@ -87,8 +87,6 @@ DEBUGMODE = False
 
 SETTINGS_PATH = Path("settings.json") # Load settings externally
 
-firstunlock = False # This variable helps ModemPreload work
-
 default_settings = {
     "dark_theme": True,
     "hacker_font": False,
@@ -262,6 +260,7 @@ from nphonekit_devices import (  # noqa: E402
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
+    SamsungModemUnlocker,
     check_serial_permissions,
     is_root,
 )  # noqa: E402
@@ -1339,70 +1338,11 @@ def contribution_prompt(x, y):  # Nicely formatted contribution/support message 
     box.wait_window()
 
 def modemUnlock(manufacturer, softUnlock=False): # Unlock the modem per-action if preload wasn't enabled
-    global firstunlock
-
-    if os_config == "LINUX":
-        if not enable_preload:
-            if preload_error and firstunlock is False:
-                if manufacturer == "SAMSUNG": # Select the manufacturer to preload
-                    AT.send("AT+SWATD=0", True) # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
-                    AT.send("AT+ACTIVATE=0,0,0", True) # An activation sequence that unlocks the modem when paired with the above command.
-                    firstunlock = True
-            else:
-                if manufacturer == "SAMSUNG": # Select the manufacturer to preload
-                    if softUnlock:
-                        AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
-                    else:
-                        AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
-                        AT.send("AT+ACTIVATE=0,0,0") # An activation sequence that unlocks the modem when paired with the above command.
-    elif os_config in ("WINDOWS", "MACOS"): # macOS behaves like Windows here; without this branch the modem is never unlocked on Mac and AT+DEVCONINFO flakes out
-        if manufacturer == "SAMSUNG": # Select the manufacturer to preload
-            if softUnlock:
-                AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
-            else:
-                AT.send("AT+SWATD=0") # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
-                AT.send("AT+ACTIVATE=0,0,0") # An activation sequence that unlocks the modem when paired with the above command.
+    if samsung_modem_unlocker is not None:
+        samsung_modem_unlocker.unlock(manufacturer, softUnlock)
 
 # Function that can parse DEVCONINFO in order to make it more readable
-def parse_devconinfo(raw_input):
-    lines = raw_input.strip().splitlines()
-    parsed_output = []
-
-    for line in lines:
-        if "+DEVCONINFO:" in line:
-            # Extract the part after "+DEVCONINFO:"
-            content = line.split(":", 1)[1].strip()
-            # Split by semicolon
-            items = content.split(";")
-            for item in items:
-                if not item:
-                    continue
-                match = re.match(r'(\w+)\((.*?)\)', item)
-                if match:
-                    key, value = match.groups()
-                    friendly_key = {
-                        "MN": "Model",
-                        "BASE": "Baseband",
-                        "VER": "Software Version",
-                        "HIDVER": "Hidden Version",
-                        "MNC": "Mobile Network Code",
-                        "MCC": "Mobile Country Code",
-                        "PRD": "Product Code",
-                        "AID": "App ID",
-                        "CC": "Country Code",
-                        "OMCCODE": "OMC Code",
-                        "SN": "Serial Number",
-                        "IMEI": "IMEI",
-                        "UN": "Unique Number",
-                        "PN": "Phone Number",
-                        "CON": "Connection Types",
-                        "LOCK": "SIM Lock",
-                        "LIMIT": "Limit Status",
-                        "SDP": "SDP Mode",
-                        "HVID": "Partition Info"
-                    }.get(key, key)
-                    parsed_output.append(f"{friendly_key}: {value if value else 'N/A'}")
-    return "\n".join(parsed_output)
+parse_devconinfo = nphonekit_core.parse_devconinfo
 
 def lu(path="unlocks.json"):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -2456,6 +2396,7 @@ def main():
 
 serman1 = None
 preloader = None
+samsung_modem_unlocker = None
 
 
 def disable_preload():
@@ -2479,7 +2420,7 @@ def run_app():
     background threads belong to the executable entrypoint and therefore
     happen only when the app is launched.
     """
-    global serman, serman1, preloader
+    global serman, serman1, preloader, samsung_modem_unlocker
 
     persist_settings()
 
@@ -2503,6 +2444,9 @@ def run_app():
         serman = SerialManager(strings, debug_info)
     serman1 = SerialManager(strings, debug_info)
     AT.configure(serman, lambda: enable_preload, preload_done, rt, strings)
+    samsung_modem_unlocker = SamsungModemUnlocker(
+        AT, os_config, lambda: enable_preload, lambda: preload_error
+    )
     preloader = SamsungPreloader(
         serman1,
         strings,

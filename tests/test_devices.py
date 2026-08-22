@@ -186,6 +186,44 @@ def test_samsung_preloader_disables_when_usb_is_absent():
     assert done.is_set()
 
 
+def test_samsung_modem_unlocker_uses_soft_unlock_sequence():
+    class FakeAT:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command, *args):
+            self.commands.append((command, args))
+
+    at = FakeAT()
+    unlocker = devices.SamsungModemUnlocker(at, "MACOS", lambda: False, lambda: False)
+
+    unlocker.unlock("SAMSUNG", soft_unlock=True)
+
+    assert at.commands == [("AT+SWATD=0", ())]
+
+
+def test_samsung_modem_unlocker_retries_failed_linux_preload_once():
+    class FakeAT:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command, *args):
+            self.commands.append((command, args))
+
+    at = FakeAT()
+    unlocker = devices.SamsungModemUnlocker(at, "LINUX", lambda: False, lambda: True)
+
+    unlocker.unlock("SAMSUNG")
+    unlocker.unlock("SAMSUNG")
+
+    assert at.commands == [
+        ("AT+SWATD=0", (True,)),
+        ("AT+ACTIVATE=0,0,0", (True,)),
+        ("AT+SWATD=0", ()),
+        ("AT+ACTIVATE=0,0,0", ()),
+    ]
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()

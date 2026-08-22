@@ -339,3 +339,11 @@ def test_select_serial_port_multiple_keeps_first_and_notes():
     assert "/dev/ttyACM0" in note
     assert "/dev/ttyACM1" in note
     assert "/dev/ttyUSB0" in note
+
+
+def test_parse_devconinfo_renders_known_and_unknown_fields():
+    output = core.parse_devconinfo(
+        "+DEVCONINFO:MN(SM-S918B);SN(ABC123);CUSTOM();IGNORED"
+    )
+
+    assert output == "Model: SM-S918B\nSerial Number: ABC123\nCUSTOM: N/A"

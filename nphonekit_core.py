@@ -199,6 +199,34 @@ def parse_fastboot_devices(stdout: Optional[str]) -> list[str]:
     return serials
 
 
+def parse_devconinfo(raw_input: str) -> str:
+    """Render Samsung ``AT+DEVCONINFO`` output as readable key/value lines."""
+    friendly_names = {
+        "MN": "Model", "BASE": "Baseband", "VER": "Software Version",
+        "HIDVER": "Hidden Version", "MNC": "Mobile Network Code",
+        "MCC": "Mobile Country Code", "PRD": "Product Code", "AID": "App ID",
+        "CC": "Country Code", "OMCCODE": "OMC Code", "SN": "Serial Number",
+        "IMEI": "IMEI", "UN": "Unique Number", "PN": "Phone Number",
+        "CON": "Connection Types", "LOCK": "SIM Lock", "LIMIT": "Limit Status",
+        "SDP": "SDP Mode", "HVID": "Partition Info",
+    }
+    parsed_output = []
+    for line in (raw_input or "").strip().splitlines():
+        if "+DEVCONINFO:" not in line:
+            continue
+        content = line.split(":", 1)[1].strip()
+        for item in content.split(";"):
+            if not item:
+                continue
+            match = re.match(r'(\w+)\((.*?)\)', item)
+            if match:
+                key, value = match.groups()
+                parsed_output.append(
+                    f"{friendly_names.get(key, key)}: {value if value else 'N/A'}"
+                )
+    return "\n".join(parsed_output)
+
+
 # User-facing explanations for each selection failure reason. Kept here (UI-free
 # strings) so the mapping is testable; callers render them however they like.
 _REASON_MESSAGES = {
