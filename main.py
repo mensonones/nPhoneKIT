@@ -41,6 +41,7 @@ from nphonekit_ui import (
     InstantTooltips,
     QtDialogHelper,
     QtRedirectText,
+    SettingsDialog,
     Worker,
 )
 from datetime import datetime, timedelta
@@ -2841,127 +2842,6 @@ def _material_qss(dark=True, hacker=False):
 
 qt_dialog_helper = None
 
-# ------------ settings dialog ------------
-class SettingsDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None, settings=None):
-        super().__init__(parent)
-        self.setWindowTitle(strings.get('settingsMenuTitleText','Settings'))
-        self.setModal(True)
-        self.resize(520, 380)
-
-        self.settings = dict(settings or {})
-
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #000000;
-            }
-            QCheckBox {
-                color: white;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border: 2px solid #888;
-                border-radius: 4px;
-                background: black;
-            }
-            QCheckBox::indicator:checked {
-                background: #4CAF50;
-                border: 2px solid #4CAF50;
-            }
-        """)
-
-
-
-        # main toggles
-        main_keys = ["dark_theme","hacker_font","slower_animations","update_check","enable_preload","contributionsuggestions"]
-        dev_keys  = ["debug_info","basic_success_checks"]
-
-        layout = QtWidgets.QVBoxLayout(self)
-
-        # logo row
-        logo = self._logo_widget()
-        layout.addWidget(logo)
-
-        grid = QtWidgets.QGridLayout()
-        self.boxes = {}
-        r = 0
-        for k in main_keys:
-            if k == "contributionsuggestions":
-                cb = QtWidgets.QCheckBox("Contribution Suggestions".title())
-            else:
-                cb = QtWidgets.QCheckBox(k.replace("_"," ").title())
-            cb.setChecked(bool(self.settings.get(k, False)))
-            self.boxes[k] = cb
-            grid.addWidget(cb, r//2, r%2)
-            r += 1
-        layout.addLayout(grid)
-
-        # Privacy Mode button removed: it triggered a self-modifying updater that
-        # wrote and executed a temporary .py and rewrote main.py in place. Its
-        # only purpose was disabling telemetry, which is now off at the source.
-
-        layout.addSpacing(8)
-        dev_label = QtWidgets.QLabel(strings.get('devSettingsTitle','Developer Settings'))
-        dev_label.setStyleSheet("color:#aaa; font-weight:600; margin-top:6px;")
-        layout.addWidget(dev_label)
-
-        dev_grid = QtWidgets.QGridLayout()
-        for i, k in enumerate(dev_keys):
-            cb = QtWidgets.QCheckBox(k.replace("_"," ").title())
-            cb.setChecked(bool(self.settings.get(k, False)))
-            self.boxes[k] = cb
-            dev_grid.addWidget(cb, i//2, i%2)
-        layout.addLayout(dev_grid)
-
-        layout.addStretch(1)
-        btns = QtWidgets.QHBoxLayout()
-        btnCancel = QtWidgets.QPushButton("Cancel")
-        btnApply  = QtWidgets.QPushButton(strings.get('applyText','Apply'))
-        btns.addStretch(1)
-        btns.addWidget(btnCancel)
-        btns.addWidget(btnApply)
-        layout.addLayout(btns)
-
-        btnCancel.clicked.connect(self.reject)
-        btnApply.clicked.connect(self._apply)
-
-    def _apply(self):
-        for k, cb in self.boxes.items():
-            self.settings[k] = bool(cb.isChecked())
-        save_settings(self.settings)
-        self.accept()
-
-    def _logo_widget(self):
-        w = QtWidgets.QFrame()
-        h = QtWidgets.QHBoxLayout(w)
-        pic = QtWidgets.QLabel()
-        pic.setFixedSize(40,40)
-        pth = _find_logo()
-        if pth:
-            pm = QtGui.QPixmap(pth).scaled(40,40, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-            pic.setPixmap(pm)
-        else:
-            # draw placeholder gradient
-            pm = QtGui.QPixmap(40,40)
-            pm.fill(QtCore.Qt.transparent)
-            qp = QtGui.QPainter(pm)
-            grad = QtGui.QLinearGradient(0,0,40,40)
-            grad.setColorAt(0, QtGui.QColor(124,77,255))
-            grad.setColorAt(1, QtGui.QColor(3,218,198))
-            qp.setBrush(grad)
-            qp.setPen(QtCore.Qt.NoPen)
-            qp.drawRoundedRect(0,0,40,40,8,8)
-            qp.end()
-            pic.setPixmap(pm)
-        title = QtWidgets.QLabel(strings.get('settingsMenuTitleText','Settings'))
-        title.setStyleSheet("font-size:18px; font-weight:700;")
-        h.addWidget(pic)
-        h.addSpacing(10)
-        h.addWidget(title)
-        h.addStretch(1)
-        return w
-
 # ------------ main window ------------
 class MainWindow(QtWidgets.QMainWindow):
     instance = None  # for set_brand() global bridge
@@ -3247,7 +3127,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # ----- settings -----
     def open_settings(self):
-        dlg = SettingsDialog(self, settings=self._settings)
+        dlg = SettingsDialog(
+            self,
+            settings=self._settings,
+            strings=strings,
+            save_settings=save_settings,
+            find_logo=_find_logo,
+        )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             self._settings = dlg.settings
             # immediately apply theme if toggled
