@@ -36,6 +36,13 @@ import webbrowser # Opening browser to any page
 import xml.etree.ElementTree as ET # Importing strings.xml
 from PyQt5 import QtCore, QtGui, QtWidgets # GUI
 from PyQt5.QtGui import QFont
+from nphonekit_ui import (
+    BusyOverlay,
+    InstantTooltips,
+    QtDialogHelper,
+    QtRedirectText,
+    Worker,
+)
 from datetime import datetime, timedelta
 from functools import partial # Register button clicks to functions
 import shutil # Fastboot partition eraser for Motorola
@@ -2832,169 +2839,7 @@ def _material_qss(dark=True, hacker=False):
         }}
         """
 
-# ------------ busy spinner overlay ------------
-class BusyOverlay(QtWidgets.QWidget):
-    def __init__(self, parent=None, text="Working…"):
-        super().__init__(parent)
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, False)
-        self.setWindowFlags(QtCore.Qt.FramelessWindowHint | QtCore.Qt.SubWindow)
-        self._angle = 0
-        self._timer = QtCore.QTimer(self)
-        self._timer.timeout.connect(self._tick)
-        self._label = QtWidgets.QLabel(text, self)
-        self._label.setStyleSheet(f"color:{TEXT}; font-size:14px;")
-        self.hide()
-
-    def _tick(self):
-        self._angle = (self._angle + 8) % 360
-        self.update()
-
-    def start(self):
-        self.setGeometry(self.parent().rect())
-        self.show()
-        self.raise_()
-        self._timer.start(16)
-
-    def stop(self):
-        self._timer.stop()
-        self.hide()
-
-    def resizeEvent(self, e):
-        self.setGeometry(self.parent().rect())
-        self._label.adjustSize()
-        self._label.move(self.width()//2 - self._label.width()//2, self.height()//2 + 26)
-        super().resizeEvent(e)
-
-    def paintEvent(self, e):
-        p = QtGui.QPainter(self)
-        p.setRenderHint(QtGui.QPainter.Antialiasing)
-        # dim background
-        p.fillRect(self.rect(), QtGui.QColor(0,0,0,120))
-        # spinner donut
-        radius = 22
-        center = QtCore.QPoint(self.width()//2, self.height()//2 - 8)
-        pen = QtGui.QPen(QtGui.QColor(255,255,255,220), 3)
-        p.setPen(pen)
-        # draw faint ring
-        p.setOpacity(0.2)
-        p.drawEllipse(center, radius, radius)
-        # draw rotating arc
-        p.setOpacity(1.0)
-        p.save()
-        p.translate(center)
-        p.rotate(self._angle)
-        rect = QtCore.QRectF(-radius, -radius, radius*2, radius*2)
-        p.drawArc(rect, 0, 110*16)  # 110 degrees
-        p.restore()
-
-# ------------ worker to run blocking functions off UI thread ------------
-class WorkerSignals(QtCore.QObject):
-    finished = QtCore.pyqtSignal()
-    error = QtCore.pyqtSignal(str)
-
-class Worker(QtCore.QRunnable):
-    def __init__(self, fn, *args, **kwargs):
-        super().__init__()
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-        self.signals = WorkerSignals()
-        self.setAutoDelete(True)
-
-    @QtCore.pyqtSlot()
-    def run(self):
-        try:
-            self.fn(*self.args, **self.kwargs)
-        except Exception as e:
-            self.signals.error.emit(str(e))
-        finally:
-            self.signals.finished.emit()
-
-class QtDialogHelper(QtCore.QObject):
-    request_message = QtCore.pyqtSignal(object, object, object, object, object, object)
-    request_input = QtCore.pyqtSignal(object, object, object, object, object, object, object)
-    request_contribution = QtCore.pyqtSignal(object, object)
-
-    def __init__(self):
-        super().__init__()
-        self.request_message.connect(self._show_message)
-        self.request_input.connect(self._show_input)
-        self.request_contribution.connect(self._show_contribution)
-
-    def _show_message(self, x, y, title, content, result, done):
-        msg = QtWidgets.QMessageBox()
-        msg.setWindowTitle(title)
-        msg.setText(content)
-        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msg.exec_()
-        result["value"] = True
-        done.set()
-
-    def _show_input(self, title, text, placeholder, ok_text, cancel_text, result, done):
-        value, ok = QtWidgets.QInputDialog.getText(None, title, text, text=placeholder)
-        if ok and value != placeholder:
-            result["value"] = value
-        else:
-            result["value"] = None
-        done.set()
-
-    def _show_contribution(self, uuid_str, done): # Qt support/contribution dialog, always built on the main thread (raw Tk here crashes macOS from a worker thread)
-        try:
-            msg = QtWidgets.QMessageBox()
-            msg.setWindowTitle("Support nPhoneKIT")
-            msg.setText(
-                "Want to help support nPhoneKIT, and get a special Contributor thank you "
-                "message on the README? Please fill out the quick form below.\n\n"
-                "You can (and should!) submit it whether the unlock worked flawlessly or "
-                "failed — it helps fix bugs for the future.\n\n"
-                f"Your unique submission code (prevents spam):\n{uuid_str}\n\n"
-                "Turn off 'Contribution Messages' in settings to hide this."
-            )
-            open_btn = msg.addButton("Open Form", QtWidgets.QMessageBox.AcceptRole)
-            msg.addButton("Close", QtWidgets.QMessageBox.RejectRole)
-            msg.exec_()
-            if msg.clickedButton() == open_btn:
-                clip = QtWidgets.QApplication.clipboard()
-                if clip is not None:
-                    clip.setText(uuid_str)
-                webbrowser.open("https://forms.gle/SM8Mjyoz43Jcwxzn8")
-        finally:
-            done.set()
-
 qt_dialog_helper = None
-
-# ------------ stdout redirector -> QTextEdit with token coloring ------------
-class QtRedirectText(QtCore.QObject):
-    new_text = QtCore.pyqtSignal(str)
-    def __init__(self, widget):
-        super().__init__()
-        self.widget = widget
-        self.pattern = re.compile(r"( FAIL| OK)")
-        self.new_text.connect(self._append)
-
-    def write(self, s: str):
-        # ensure on gui thread
-        self.new_text.emit(s)
-
-    def flush(self):  # required for file-like
-        pass
-
-    def _append(self, s: str):
-        # token colorize -> HTML
-        def _esc(x): return QtGui.QTextDocument().toPlainText() if False else x  # no-op fast path
-        parts = []
-        last = 0
-        for m in self.pattern.finditer(s):
-            parts.append(QtGui.QTextDocument().toPlainText() if False else s[last:m.start()])
-            token = m.group(1).strip()
-            color = OK_COLOR if token == "OK" else FAIL_COLOR
-            parts.append(f'<span style="color:{color}; font-weight:700;"> {token}</span>')
-            last = m.end()
-        parts.append(s[last:])
-        html = "".join(parts).replace("\n", "<br>")
-        self.widget.moveCursor(QtGui.QTextCursor.End)
-        self.widget.insertHtml(html)
-        self.widget.moveCursor(QtGui.QTextCursor.End)
 
 # ------------ settings dialog ------------
 class SettingsDialog(QtWidgets.QDialog):
@@ -3430,54 +3275,6 @@ def select_brand(name):
 
 def set_brand(name):
     select_brand(name)
-
-# --- Instant / Tunable Tooltips for PyQt5 ---
-class InstantTooltips(QtCore.QObject):
-    """
-    Global tooltip accelerator.
-    - delay_ms: how long to wait before showing (0 = instant)
-    - hide_ms: auto-hide after N ms (<=0 disables auto-hide)
-    """
-    def __init__(self, delay_ms=100, hide_ms=0, parent=None):
-        super().__init__(parent)
-        self.delay_ms = max(0, int(delay_ms))
-        self.hide_ms = int(hide_ms)
-        self._timer = QtCore.QTimer(self)
-        self._timer.setSingleShot(True)
-        self._pending = None  # (global_pos, widget, text)
-
-    def eventFilter(self, obj, event):
-        et = event.type()
-        if et == QtCore.QEvent.ToolTip:
-            text = obj.toolTip() if hasattr(obj, "toolTip") else ""
-            if not text:
-                QtWidgets.QToolTip.hideText()
-                return True
-            pos = obj.mapToGlobal(event.pos())
-            if self.delay_ms == 0:
-                QtWidgets.QToolTip.showText(pos, text, obj)
-                if self.hide_ms > 0:
-                    QtCore.QTimer.singleShot(self.hide_ms, QtWidgets.QToolTip.hideText)
-            else:
-                self._pending = (pos, obj, text)
-                self._timer.stop()
-                self._timer.timeout.disconnect() if self._timer.receivers(self._timer.timeout) else None
-                self._timer.timeout.connect(self._show_pending)
-                self._timer.start(self.delay_ms)
-            return True  # we handled it (prevents default slow tooltip)
-        elif et in (QtCore.QEvent.Leave, QtCore.QEvent.FocusOut):
-            QtWidgets.QToolTip.hideText()
-        return False
-
-    def _show_pending(self):
-        if not self._pending:
-            return
-        pos, w, text = self._pending
-        self._pending = None
-        if w and w.isVisible():
-            QtWidgets.QToolTip.showText(pos, text, w)
-            if self.hide_ms > 0:
-                QtCore.QTimer.singleShot(self.hide_ms, QtWidgets.QToolTip.hideText)
 
 # ------------- entry point -------------
 def init_qt_dialog_helper():
