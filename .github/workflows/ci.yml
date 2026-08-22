@@ -22,6 +22,11 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -r requirements-dev.txt
 
+      - name: Lint (ruff)
+        # Scoped to the clean modules for now; main.py is linted later, during
+        # the package migration (see ruff.toml).
+        run: python -m ruff check nphonekit_core.py tests/
+
       - name: Byte-compile main.py (syntax check)
         # Cheap guard: fails the build on any syntax error in the app entrypoint,
         # even though main.py can't be fully imported in CI (it opens serial
