@@ -403,3 +403,15 @@ def test_parse_devconinfo_renders_known_and_unknown_fields():
     )
 
     assert output == "Model: SM-S918B\nSerial Number: ABC123\nCUSTOM: N/A"
+
+
+def test_parse_devconinfo_normalizes_leading_commas_in_network_codes():
+    output = core.parse_devconinfo(
+        "+DEVCONINFO:MNC(,05);MCC(,724);BASE(UNKNOWN)"
+    )
+
+    assert output == (
+        "Mobile Network Code: 05\n"
+        "Mobile Country Code: 724\n"
+        "Baseband: UNKNOWN"
+    )

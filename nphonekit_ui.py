@@ -160,7 +160,7 @@ class QtRedirectText(QtCore.QObject):
             parts.append(text[last:match.start()])
             token = match.group(1).strip()
             color = OK_COLOR if token == "OK" else FAIL_COLOR
-            parts.append(f'<span style="color:{color}; font-weight:700;"> {token}</span>')
+            parts.append(f'<span style="color:{color}; font-weight:700;">&nbsp;{token}</span>')
             last = match.end()
         parts.append(text[last:])
         html = "".join(parts).replace("\n", "<br>")
@@ -471,12 +471,12 @@ class MainWindow(QtWidgets.QMainWindow):
             layout.addLayout(grid)
 
         if title == "Samsung":
-            add_section("🔓 FRP Unlock", actions[:4], primary_first=True)
-            add_section("🛠 Device Tools", actions[4:])
+            add_section("FRP Unlock", actions[:4], primary_first=True)
+            add_section("Device Tools", actions[4:])
         elif title == "Feedback":
-            add_section("📩 Leave Feedback", actions, primary_first=True)
+            add_section("Leave Feedback", actions, primary_first=True)
         else:
-            add_section("🛠 Device Tools", actions)
+            add_section("Device Tools", actions)
         layout.addStretch(1)
         return widget
 
