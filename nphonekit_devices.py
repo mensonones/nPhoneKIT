@@ -416,6 +416,34 @@ class SamsungPreloader:
             self.done.set()
 
 
+class SamsungModemUnlocker:
+    """Apply the Samsung modem-unlock sequence for an individual action."""
+
+    def __init__(self, at_client, os_config, enable_preload, preload_error):
+        self.at_client = at_client
+        self.os_config = os_config
+        self.enable_preload = enable_preload
+        self.preload_error = preload_error
+        self.first_unlock = False
+
+    def unlock(self, manufacturer, soft_unlock=False):
+        if manufacturer != "SAMSUNG":
+            return
+        if self.os_config == "LINUX":
+            if self.enable_preload():
+                return
+            if self.preload_error() and not self.first_unlock:
+                self.at_client.send("AT+SWATD=0", True)
+                self.at_client.send("AT+ACTIVATE=0,0,0", True)
+                self.first_unlock = True
+                return
+        elif self.os_config not in ("WINDOWS", "MACOS"):
+            return
+        self.at_client.send("AT+SWATD=0")
+        if not soft_unlock:
+            self.at_client.send("AT+ACTIVATE=0,0,0")
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 
