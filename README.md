@@ -197,9 +197,10 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
 ## 📱 Current Features
 
 ### Samsung
-- FRP Unlock on most U.S. 2024 Samsung Devices 
-- FRP Unlock on Aug 2022 - Dec 2022 Security Patch Date Samsung Devices
-- FRP Unlock on Pre - Aug 2022 Security Patch Date Samsung Devices
+- Samsung FRP compatibility is documented in [the compatibility matrix](docs/samsung-frp-compatibility.md)
+- Candidate support for some pre-Aug 2022 and Aug-Dec 2022 patch bands
+- Limited candidate support for some U.S. 2024 devices
+- 2023 and 2025–2026 patches are not validated
 - Get Version/Firmware Info on All Samsung Devices
 - Reboot Samsung Devices (Normal or into Download Mode)
 - Open Hidden WLANTEST Menu on All Samsung Devices

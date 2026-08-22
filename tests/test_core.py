@@ -415,3 +415,13 @@ def test_parse_devconinfo_normalizes_leading_commas_in_network_codes():
         "Mobile Country Code: 724\n"
         "Baseband: UNKNOWN"
     )
+
+
+def test_security_patch_parser_and_samsung_support_classification():
+    assert core.parse_security_patch("Security Patch Level: 2024-05-01") == "2024-05-01"
+    assert core.parse_security_patch("SPL=2022/08/01") == "2022-08-01"
+    assert core.classify_samsung_frp_support("Patch Level: 2022-07-01") == "pre-2022-candidate"
+    assert core.classify_samsung_frp_support("Security Patch: 2022-12-01") == "2022-candidate"
+    assert core.classify_samsung_frp_support("Security Patch: 2024-05-01") == "2024-limited-candidate"
+    assert core.classify_samsung_frp_support("Security Patch: 2025-01-01") == "not-validated"
+    assert core.classify_samsung_frp_support("Model: SM-A000") == "unknown"

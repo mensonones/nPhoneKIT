@@ -104,6 +104,11 @@ def build_tab_specs(strings: dict, actions: dict) -> list[tuple[str, list[tuple[
 
 _MODEL_RE = re.compile(r"Model:\s*(\S+)")
 _IMEI_RE = re.compile(r"IMEI:\s*([0-9]+)")
+_SECURITY_PATCH_RE = re.compile(
+    r"(?:security\s+patch(?:\s+level)?|patch\s+level|spl)\s*[:=-]?\s*"
+    r"(20\d{2}[-/.]\d{2}[-/.]\d{2})",
+    re.IGNORECASE,
+)
 
 
 def parse_model(text: Optional[str]) -> Optional[str]:
@@ -126,6 +131,39 @@ def parse_imei(text: Optional[str]) -> Optional[str]:
         return None
     m = _IMEI_RE.search(text)
     return m.group(1) if m else None
+
+
+def parse_security_patch(text: Optional[str]) -> Optional[str]:
+    """Extract an Android security patch date as ``YYYY-MM-DD``.
+
+    Device responses are inconsistent about whether they label this field as
+    ``Security Patch``, ``Security Patch Level``, ``Patch Level`` or ``SPL``.
+    Returning ``None`` for absent/unrecognised data keeps callers conservative.
+    """
+    if not text:
+        return None
+    match = _SECURITY_PATCH_RE.search(text)
+    if not match:
+        return None
+    return match.group(1).replace("/", "-").replace(".", "-")
+
+
+def classify_samsung_frp_support(text: Optional[str]) -> str:
+    """Classify known Samsung FRP support bands without claiming compatibility.
+
+    This is an inventory aid, not a bypass decision. Exact support still needs
+    an authorised test for the model, CSC/region and firmware build.
+    """
+    patch = parse_security_patch(text)
+    if patch is None:
+        return "unknown"
+    if patch < "2022-08-01":
+        return "pre-2022-candidate"
+    if patch <= "2022-12-31":
+        return "2022-candidate"
+    if patch.startswith("2024-"):
+        return "2024-limited-candidate"
+    return "not-validated"
 
 
 # ---------------------------------------------------------------------------
