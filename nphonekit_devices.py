@@ -1,6 +1,7 @@
 """Device command clients used by the nPhoneKIT application."""
 
 import glob
+import getpass
 import os
 import platform
 import shlex
@@ -11,6 +12,62 @@ import time
 import nphonekit_core
 import serial
 from serial.tools import list_ports
+
+
+SERIAL_GROUPS = ("dialout", "uucp", "lock", "tty")
+
+
+def is_root(os_config):
+    """Return whether the current process has the required OS privileges."""
+    if os_config == "WINDOWS":
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            return False
+    if os_config in ("LINUX", "MACOS"):
+        return os.geteuid() == 0
+    return False
+
+
+def serial_permission_command(distro_name, user):
+    """Return the group-membership command appropriate for a Linux distro."""
+    if distro_name in ("ubuntu", "debian", "linuxmint", "zorin", "fedora", "rhel", "centos"):
+        return f"sudo usermod -aG dialout {user}"
+    if distro_name in ("arch", "endeavouros", "cachyos", "manjaro", "garuda"):
+        return f"sudo usermod -aG uucp,lock {user}"
+    return f"sudo usermod -aG dialout,uucp,lock {user}"
+
+
+def check_serial_permissions(os_config, on_fix_required=None, user=None, user_groups=None, distro_name=None):
+    """Check serial access and optionally report the corrective command."""
+    if os_config not in ("LINUX", "MACOS"):
+        return True
+    user = user or getpass.getuser()
+    if user_groups is None:
+        try:
+            import grp
+            user_groups = [group.gr_name for group in grp.getgrall() if user in group.gr_mem]
+        except Exception:
+            user_groups = []
+        try:
+            user_groups.append(grp.getgrgid(os.getgid()).gr_name)
+        except Exception:
+            pass
+    if nphonekit_core.has_required_group(user_groups, SERIAL_GROUPS):
+        return True
+    if os_config == "MACOS":
+        return True
+    if distro_name is None:
+        try:
+            import distro
+            distro_name = distro.id()
+        except Exception:
+            distro_name = ""
+    command = serial_permission_command(distro_name, user)
+    if on_fix_required is not None:
+        on_fix_required(command)
+    return False
 
 
 class ADB:

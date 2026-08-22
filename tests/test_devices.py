@@ -109,3 +109,26 @@ def test_at_sends_through_configured_manager(monkeypatch, tmp_path):
     assert devices.AT.send("AT+TEST") is True
     assert manager.commands == ["AT+TEST"]
     assert (tmp_path / "tmp_output.txt").read_text(encoding="utf-8") == "OK"
+
+
+def test_serial_permission_check_accepts_required_group():
+    assert devices.check_serial_permissions("LINUX", user="alice", user_groups=["dialout"])
+
+
+def test_serial_permission_check_reports_distro_command():
+    commands = []
+
+    result = devices.check_serial_permissions(
+        "LINUX",
+        on_fix_required=commands.append,
+        user="alice",
+        user_groups=[],
+        distro_name="arch",
+    )
+
+    assert result is False
+    assert commands == ["sudo usermod -aG uucp,lock alice"]
+
+
+def test_serial_permission_check_skips_macos_group_prompt():
+    assert devices.check_serial_permissions("MACOS", user="alice", user_groups=[])
