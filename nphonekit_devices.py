@@ -602,6 +602,40 @@ class SamsungWifiTestClient:
         return all(marker in output for marker in self.SUCCESS_MARKERS)
 
 
+class MtkClientRunner:
+    """Prepare and launch the bundled mtkclient GUI per operating system."""
+
+    def __init__(self, os_config, python_executable, libusb_available):
+        self.os_config = os_config
+        self.python_executable = python_executable
+        self.libusb_available = libusb_available
+
+    def available(self):
+        return self.os_config != "MACOS" or self.libusb_available()
+
+    def commands(self):
+        requirements = "deps/mtkclient/requirements.txt"
+        gui = "./deps/mtkclient/mtk_gui.py"
+        if self.os_config == "WINDOWS":
+            return [f"pip install -r {requirements}", f"python {gui}"]
+        if self.os_config == "MACOS":
+            executable = self.python_executable
+            return [
+                f'"{executable}" -m pip install -r {requirements}',
+                f'"{executable}" {gui}',
+            ]
+        if self.os_config == "LINUX":
+            return [
+                "sudo apt install libxcb-cursor0",
+                "sudo bash -c 'source ./deps/venv/bin/activate && python3 ./deps/mtkclient/mtk_gui.py'",
+            ]
+        return []
+
+    def run(self, run_command=os.system):
+        for command in self.commands():
+            run_command(command)
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 
