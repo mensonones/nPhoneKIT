@@ -24,7 +24,6 @@ import sys # Getting basic system info
 import re # Finding strings within text
 import subprocess # Opening new processes
 import platform # Checking the current OS
-import glob # Finding/listing ports
 import asyncio # Running different actions asynchronously
 import threading # Using multiple threads
 import urllib.request # Requesting different servers
@@ -48,7 +47,6 @@ import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
 from typing import Tuple
-from nphonekit_devices import ADB
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
 
@@ -251,13 +249,14 @@ def self_fix_serial():
 
 # Imports that have error handling because they are sometimes not installed or are the cause of another error
 try:
-    from serial.tools import list_ports  # Listing connected devices; late for self-fix bootstrap  # noqa: E402
-    import serial  # Communicating with device; late for self-fix bootstrap  # noqa: E402
+    import serial  # Communicating with device; late for self-fix bootstrap  # noqa: E402,F401
 except ModuleNotFoundError:
     print("[nPhoneKIT] PySerial Error, wasn't able to import serial module.")
     x = input("Run Self-Fix Diagnostics? (RECOMMENDED, THIS USUALLY FIXES THE ISSUE) (y/n):")
     if x == "y" or x == "Y":
         self_fix_serial()
+
+from nphonekit_devices import ADB, SerialManager, SerialManagerWindows  # noqa: E402
 
 MAIN_SCRIPT = os.path.abspath(__file__)
 
@@ -280,175 +279,6 @@ def privacyupdate():
         print("[nPhoneKIT] Automatic telemetry is disabled in this build.")
 
 # --- PRIVACY_UPDATER_END ---
-
-class SerialManager: # AT command sender via class
-    def __init__(self, baud=115200): # Start the serial port early
-        self.port = self.detect_port() # Detect which port it is
-        self.baud = baud # Choose a baud rate
-        self.ser = None
-
-        if not self.port: # No device connected
-            if debug_info:
-                print(strings['noDeviceSermanError'])
-        elif self.port:
-            try:
-                self.ser = serial.Serial(self.port, self.baud, timeout=2) # Save the port for use with the rest of the class
-                time.sleep(0.5)
-                if debug_info:
-                    print(f"{strings['sermanConnectedPort']}{self.port}")
-            except serial.SerialException as e:
-                raise RuntimeError(f"{strings['sermanOpeningPortError']}{self.port}: {e}")
-
-    def reset(self):
-        self.__init__()
-
-    def detect_port(self):
-        system = platform.system()
-
-        # Detect port for different systems/OSes
-
-        if system == "Windows":
-            for i in range(1, 256):
-                try:
-                    s = serial.Serial(f"COM{i}")
-                    s.close()
-                    return f"COM{i}"
-                except Exception:
-                    pass
-        elif system == "Darwin":  # macOS
-            ports = glob.glob("/dev/tty.usb*")
-            chosen, note = nphonekit_core.select_serial_port(ports)
-            if note:
-                print(note)
-            return chosen
-        else:  # Linux
-            ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
-            chosen, note = nphonekit_core.select_serial_port(ports)
-            if note:
-                print(note)
-            return chosen
-
-        return None
-
-    def send(self, command):
-        if not self.ser or not self.ser.is_open:
-            if preload_samsung_modem:
-                if debug_info:
-                    print(strings['noDeviceGenericError'])
-            else:
-                print(strings['noDeviceGenericError'])
-        else:
-            self.ser.flushInput()
-            self.ser.flushOutput()
-            self.ser.write((command.strip() + '\r\n').encode())
-            time.sleep(0.1)
-
-            output = []
-            while True:
-                line = self.ser.readline()
-                if not line:
-                    break
-                output.append(line.decode(errors='ignore').strip())
-
-            return '\n'.join(output)
-
-    def close(self):
-        if self.ser and self.ser.is_open:
-            self.ser.close()
-
-class SerialManagerWindows: # Version of SerialManager class specifically for Windows
-    def __init__(self, port: str = None, baud: int = 115200, debug: bool = False):
-        """
-        Windows-only serial helper.
-        :param port: Override COM port (e.g. "COM3"). If None, auto-detects.
-        :param baud: Baud rate.
-        :param debug: Print connection details if True.
-        """
-        if platform.system() != "Windows":
-            raise RuntimeError(strings['sermanWindowsOsError'])
-
-        self.debug = debug
-        self.baud = baud
-        self.ser = None
-
-        # allow override, else auto-detect
-        self.port = port or self.detect_port()
-        if not self.port:
-            if self.debug:
-                print(strings['sermanNoComPort'])
-            return
-
-        try:
-            self.ser = serial.Serial(self.port, self.baud, timeout=2)
-            time.sleep(0.5)
-            if self.debug:
-                print(f"{strings['sermanConnectedPort']}{self.port} @ {self.baud} baud")
-        except (serial.SerialException, PermissionError) as e:
-            if self.debug:
-                print(f"{strings['sermanOpeningPortError']}{self.port}: {e}")
-            self.ser = None
-
-    def reset(self):
-        self.__init__()
-
-    def detect_port(self) -> str:
-        """Return the first openable COM* port or None."""
-        ports = list_ports.comports()
-        if self.debug:
-            print(f"{strings['sermanWinAvailablePorts']}{[p.device for p in ports]}")
-
-        # Sort ports to prioritize ones that are more likely to be phones
-        # Phones often have "USB" or "Mobile" in their description
-        sorted_ports = sorted(ports, key=lambda p: (
-            "SAMSUNG" in p.description.upper() or
-            "MOBILE" in p.description.upper() or
-            "MODEM" in p.description.upper() or
-            "USB" in p.description.upper()
-        ), reverse=True)
-
-        for p in sorted_ports:
-            if p.device.upper().startswith("COM"):
-                try:
-                    # Try to open the port to check if it's available
-                    test_ser = serial.Serial(p.device)
-                    test_ser.close()
-                    if self.debug:
-                        print(f"{strings['sermanWinDev']}{p.device}")
-                    return p.device
-                except (serial.SerialException, PermissionError):
-                    if self.debug:
-                        print(f"[SerialManagerWindows] Port {p.device} ({p.description}) is busy or inaccessible.")
-                    continue
-        return None
-
-    def send(self, command: str, wait: float = 0.1) -> str:
-        """
-        Send a command and collect all response lines.
-        :param command: Text/AT command to send.
-        :param wait: Seconds to pause before reading.
-        """
-        if not self.ser or not self.ser.is_open:
-            raise RuntimeError(strings['serPortNotOpen'])
-
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
-        self.ser.write((command.strip() + "\r\n").encode())
-        time.sleep(wait)
-
-        lines = []
-        while True:
-            line = self.ser.readline()
-            if not line:
-                break
-            lines.append(line.decode(errors="ignore").strip())
-        return "\n".join(lines)
-
-    def close(self):
-        """Close the serial connection."""
-        if self.ser and self.ser.is_open:
-            self.ser.close()
-            if self.debug:
-                print(strings['sermanWinConClosed'])
 
 # The active serial manager is created by run_app(), not while importing this
 # module.  Keeping the reference here preserves the existing AT API without
@@ -2877,10 +2707,10 @@ def run_app():
     ADB.configure(os_config, strings, rt)
 
     if os_config == "WINDOWS":
-        serman = SerialManagerWindows()
+        serman = SerialManagerWindows(strings, debug_info)
     else:
-        serman = SerialManager()
-    serman1 = SerialManager()
+        serman = SerialManager(strings, debug_info)
+    serman1 = SerialManager(strings, debug_info)
     threading.Thread(target=preload_thread, daemon=True).start()
 
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))
