@@ -39,7 +39,26 @@ if [ "$INSTALL" -eq 1 ]; then
     fi
 fi
 
+# On Linux the app needs the current user to be in a serial-access group to talk
+# to the device. If they aren't, add them to 'dialout' and re-launch under that
+# group with `sg`, so access works immediately -- no logout/reboot required.
+in_serial_group() {
+    local groups g
+    groups=$(id -nG)
+    for g in dialout uucp lock tty; do
+        case " $groups " in *" $g "*) return 0 ;; esac
+    done
+    return 1
+}
+
+if [ "$(uname)" = "Linux" ] && ! in_serial_group; then
+    if getent group dialout >/dev/null 2>&1; then
+        echo "==> Adding $(id -un) to the 'dialout' group for serial access..."
+        sudo usermod -aG dialout "$(id -un)"
+        echo "==> Launching nPhoneKIT (dialout active for this run; no reboot needed)..."
+        exec sg dialout -c "cd \"$PWD\" && exec python3 main.py"
+    fi
+fi
+
 echo "==> Launching nPhoneKIT..."
-# Note: on Linux the app checks serial-port permissions on startup. If you are
-# not in a serial group (e.g. dialout), it will show the exact command to fix it.
 exec python3 main.py

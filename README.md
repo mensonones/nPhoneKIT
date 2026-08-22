@@ -123,9 +123,10 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
 > ```bash
 > ./run.sh
 > ```
-> It installs every dependency (Python packages + the Qt system libraries + adb)
-> and launches nPhoneKIT. Already have the deps? Use `./run.sh --no-install`.
-> The manual steps below do the same thing by hand.
+> It installs every dependency (Python packages + the Qt system libraries + adb),
+> adds you to the `dialout` serial group if needed and launches with it active
+> (**no reboot required**), then starts nPhoneKIT. Already set up? Use
+> `./run.sh --no-install`. The manual steps below do the same thing by hand.
 
 > [!CAUTION]
 > **Please** subscribe to the NlckySolutions YouTube channel to support nPhoneKIT! It's just one click, but helps a ton! If everyone who saw this subscribed, there'd be 10x+ more frequent updates!
