@@ -59,6 +59,8 @@ from nphonekit_other_actions import (
     run_lg_screen_unlock,
     run_mtkclient,
     run_moto_fastboot_frp,
+    reset_fake_battery_percent,
+    set_fake_battery_percent,
     submit_feedback,
 )
 from typing import Tuple
@@ -1372,22 +1374,17 @@ def setFakeBatteryPercent():
         ok_text="Submit",
         cancel_text="Cancel"
     )
-    adbMenu()
-    print(f"Setting percentage to {percent}%...", end="")
-    output = BatteryLevelClient(ADB, readOutput).set_level(percent)
-    if BatteryLevelClient.unauthorized(output):
-        print("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
-    else:
-        print("  OK  (Restarting your phone should undo this.)")
+    set_fake_battery_percent(
+        value=percent,
+        adb_menu=adbMenu,
+        client=BatteryLevelClient(ADB, readOutput),
+    )
 
 def resetBatteryPercent():
-    adbMenu()
-    print("Resetting percentage...", end="")
-    output = BatteryLevelClient(ADB, readOutput).reset()
-    if BatteryLevelClient.unauthorized(output):
-        print("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
-    else:
-        print("  OK  (Restarting your phone should undo this.)")
+    reset_fake_battery_percent(
+        adb_menu=adbMenu,
+        client=BatteryLevelClient(ADB, readOutput),
+    )
 
 # ===================================
 #  PyQt5 GUI Stuff

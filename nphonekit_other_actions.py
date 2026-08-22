@@ -128,3 +128,39 @@ def submit_feedback(kind, input_func, client, hardware_uuid, version, output=pri
     )
     output(status)
     return submitted
+
+
+def set_fake_battery_percent(*, value, adb_menu, client, output=print):
+    """Set a temporary fake battery percentage through ADB."""
+    def emit(message, **kwargs):
+        try:
+            output(message, **kwargs)
+        except TypeError:
+            output(message)
+
+    adb_menu()
+    emit(f"Setting percentage to {value}%...", end="")
+    result = client.set_level(value)
+    if client.unauthorized(result):
+        emit("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
+        return False
+    emit("  OK  (Restarting your phone should undo this.)")
+    return True
+
+
+def reset_fake_battery_percent(*, adb_menu, client, output=print):
+    """Reset the temporary fake battery percentage through ADB."""
+    def emit(message, **kwargs):
+        try:
+            output(message, **kwargs)
+        except TypeError:
+            output(message)
+
+    adb_menu()
+    emit("Resetting percentage...", end="")
+    result = client.reset()
+    if client.unauthorized(result):
+        emit("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
+        return False
+    emit("  OK  (Restarting your phone should undo this.)")
+    return True

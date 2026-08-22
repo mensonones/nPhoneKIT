@@ -1,4 +1,12 @@
-from nphonekit_other_actions import macos_libusb_present, run_lg_screen_unlock, run_mtkclient, run_moto_fastboot_frp, submit_feedback
+from nphonekit_other_actions import (
+    macos_libusb_present,
+    reset_fake_battery_percent,
+    run_lg_screen_unlock,
+    run_mtkclient,
+    run_moto_fastboot_frp,
+    set_fake_battery_percent,
+    submit_feedback,
+)
 
 
 def test_macos_libusb_present_uses_known_library():
@@ -83,3 +91,33 @@ def test_submit_feedback_routes_feature_request():
 
     assert submit_feedback("feature", lambda **kwargs: "idea", Client(), lambda: "uuid", "1.0", output=lambda *args: None)
     assert calls == [("idea", "uuid", "1.0")]
+
+
+def test_set_fake_battery_reports_unauthorized_device():
+    messages = []
+
+    class Client:
+        def set_level(self, value):
+            return "unauthorized"
+
+        @staticmethod
+        def unauthorized(value):
+            return value == "unauthorized"
+
+    assert not set_fake_battery_percent(value="101", adb_menu=lambda: None, client=Client(), output=messages.append)
+    assert "FAIL" in messages[-1]
+
+
+def test_reset_fake_battery_succeeds():
+    messages = []
+
+    class Client:
+        def reset(self):
+            return "ok"
+
+        @staticmethod
+        def unauthorized(value):
+            return False
+
+    assert reset_fake_battery_percent(adb_menu=lambda: None, client=Client(), output=messages.append)
+    assert "OK" in messages[-1]
