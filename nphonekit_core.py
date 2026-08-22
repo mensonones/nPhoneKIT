@@ -1,9 +1,8 @@
-"""Pure, side-effect-free core logic for nPhoneKIT.
+"""Core logic for nPhoneKIT.
 
-Everything in this module is deliberately free of I/O, global state, GUI and
-`sys.exit` so it can be imported and unit-tested in isolation (`main.py` itself
-is not importable in a test process because, at module load, it opens serial
-ports, starts threads and may call `sys.exit`).
+Most functions are deliberately free of I/O, global state, GUI and `sys.exit`
+so they can be imported and unit-tested in isolation. The narrow settings JSON
+helpers are the explicit file-I/O boundary used by `main.py`.
 
 The functions here mirror logic that currently lives inline in `main.py`. They
 are the canonical, tested implementations; `main.py` is expected to delegate to
@@ -17,6 +16,7 @@ brick a phone.
 from __future__ import annotations
 
 import re
+import json
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -39,6 +39,25 @@ def merge_settings(defaults: dict, loaded: object) -> dict:
     if isinstance(loaded, dict):
         result.update(loaded)
     return result
+
+
+def load_settings(path) -> object:
+    """Load and validate a settings JSON object from ``path``.
+
+    File and JSON errors are intentionally propagated so the application layer
+    can choose the appropriate user-facing fallback message.
+    """
+    with open(path, "r") as handle:
+        loaded = json.load(handle)
+    if not isinstance(loaded, dict):
+        raise ValueError("settings file is not a JSON object")
+    return loaded
+
+
+def save_settings(path, settings: dict) -> None:
+    """Write a settings object as indented JSON to ``path``."""
+    with open(path, "w") as handle:
+        json.dump(settings, handle, indent=2)
 
 
 # ---------------------------------------------------------------------------
