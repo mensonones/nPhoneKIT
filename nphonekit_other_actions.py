@@ -24,3 +24,43 @@ def run_mtkclient(runner_class, os_config, python_executable, show_missing, miss
         return False
     runner.run()
     return True
+
+
+def run_moto_fastboot_frp(
+    *,
+    methods,
+    confirm_method,
+    show_messagebox,
+    strings,
+    eraser_class,
+    select_target,
+    describe_reason,
+    output=print,
+):
+    """Erase Motorola FRP partitions only after an unambiguous target check."""
+    method = next((item for item in methods if item.get("id") == "moto_fastboot_frp_unlock"), None)
+    if not method or not confirm_method(
+        method["title"], method["desc"], method["pros"], method["cons"], method["minutes"]
+    ):
+        return False
+
+    show_messagebox(200, 200, "nPhoneKIT", strings["motoFastbootGuide"])
+    try:
+        eraser = eraser_class()
+    except FileNotFoundError as error:
+        output(f"Aborting: {error}")
+        show_messagebox(200, 200, "nPhoneKIT", str(error))
+        return False
+
+    serial, reason = select_target([(serial, "device") for serial in eraser.list_devices()])
+    if reason:
+        message = describe_reason(reason)
+        output(f"Aborting fastboot FRP erase: {message}")
+        show_messagebox(200, 200, "nPhoneKIT", message)
+        return False
+
+    eraser.erase_config(serial)
+    eraser.erase_persist(serial)
+    eraser.erase_frp(serial)
+    eraser.wipe_data_cache(serial)
+    return True

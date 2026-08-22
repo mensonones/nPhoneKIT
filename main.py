@@ -54,7 +54,7 @@ from nphonekit_action_support import (
     unlock_modem,
 )
 from nphonekit_samsung_actions import SamsungFrpActions
-from nphonekit_other_actions import macos_libusb_present, run_mtkclient
+from nphonekit_other_actions import macos_libusb_present, run_mtkclient, run_moto_fastboot_frp
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1130,37 +1130,15 @@ def LG_screen_unlock(): # Screen unlock on supported LG devices *untested*
                         tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
 
 def MotoFastbootFRP1():
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "moto_fastboot_frp_unlock":
-            picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:
-                show_messagebox_at(200,200,"nPhoneKIT",strings["motoFastbootGuide"])
-                # erase frp partitions upon fastboot access granted
-                try:
-                    eraser = FastbootPartitionEraser()
-                except FileNotFoundError as e:
-                    print(f"Aborting: {e}")
-                    show_messagebox_at(200, 200, "nPhoneKIT", str(e))
-                    return
-
-                # Pre-flight: refuse to erase/wipe unless exactly one device is
-                # in fastboot. With 0 or several connected, `fastboot` would act
-                # on an ambiguous target -- and wipe_data_cache is `fastboot -w`,
-                # which erases userdata. Target the chosen serial explicitly.
-                serial, reason = nphonekit_core.select_target_device(
-                    [(s, "device") for s in eraser.list_devices()]
-                )
-                if reason:
-                    msg = nphonekit_core.describe_selection_reason(reason)
-                    print(f"Aborting fastboot FRP erase: {msg}")
-                    show_messagebox_at(200, 200, "nPhoneKIT", msg)
-                    return
-
-                eraser.erase_config(serial)
-                eraser.erase_persist(serial)
-                eraser.erase_frp(serial)
-                eraser.wipe_data_cache(serial)
+    run_moto_fastboot_frp(
+        methods=load_unlock_methods("unlocks.json"),
+        confirm_method=stw,
+        show_messagebox=show_messagebox_at,
+        strings=strings,
+        eraser_class=FastbootPartitionEraser,
+        select_target=nphonekit_core.select_target_device,
+        describe_reason=nphonekit_core.describe_selection_reason,
+    )
 
 # ==============================================
 #  Simple functions that do stuff to the device
