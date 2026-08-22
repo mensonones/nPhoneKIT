@@ -1,4 +1,16 @@
-from nphonekit_samsung_actions import SamsungFrpActions
+from nphonekit_samsung_actions import SamsungFrpActions, samsung_2022_commands
+
+
+def test_samsung_2022_commands_preserve_sequence_shape():
+    commands = samsung_2022_commands()
+
+    assert len(commands) == 97
+    assert commands[:6] == [
+        "AT+SWATD=0", "AT+ACTIVATE=0,0,0", "AT+DEVCONINFO",
+        "AT+KSTRINGB=0,3", "AT+DUMPCTRL=1,0", "AT+DEBUGLVC=0,5",
+    ]
+    assert commands[6:13] == commands[13:20]
+    assert commands[-1] == "AT+DEBUGLVC=0,5"
 
 
 def test_pre_aug2022_stops_when_user_declines():

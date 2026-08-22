@@ -4,6 +4,20 @@ import re
 import threading
 
 
+def samsung_2022_commands():
+    """Return the exact AT sequence used by the Samsung 2022/23 flow."""
+    initial = [
+        "AT+SWATD=0", "AT+ACTIVATE=0,0,0", "AT+DEVCONINFO",
+        "AT+KSTRINGB=0,3", "AT+DUMPCTRL=1,0", "AT+DEBUGLVC=0,5",
+    ]
+    repeated = [
+        "AT+SWATD=0", "AT+ACTIVATE=0,0,0", "AT+SWATD=1",
+        "AT+DEBUGLVC=0,5", "AT+KSTRINGB=0,3", "AT+DUMPCTRL=1,0",
+        "AT+DEBUGLVC=0,5",
+    ]
+    return initial + repeated * 13
+
+
 class SamsungFrpActions:
     """Execute Samsung FRP workflows using injected runtime dependencies."""
 
