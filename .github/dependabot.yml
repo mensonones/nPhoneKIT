@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Python runtime + dev dependencies declared at the repo root
+  # (requirements.txt, requirements-dev.txt). The vendored deps/mtkclient tree
+  # is intentionally not watched here — it tracks its upstream project.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  # Keep the GitHub Actions used by the CI workflow up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

@@ -1,38 +1,48 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report a problem with nPhoneKIT
 title: ''
-labels: ''
+labels: bug
 assignees: ''
 
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A clear and concise description of what went wrong.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+1. Open nPhoneKIT
+2. Click on '...'
+3. See error
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What you expected to happen instead.
+
+**Console / error output**
+Paste the full text output from the nPhoneKIT window (and the terminal, if you
+launched it from one). This is usually the single most useful piece of
+information for diagnosing device issues — please don't omit it.
+
+```
+<paste output here>
+```
+
+**Environment**
+- nPhoneKIT version: [e.g. 2024.x — shown in the title bar / releases]
+- Computer OS: [Windows / Linux distro + version / macOS version]
+- Python version: [`python3 --version`]
+- How you launched it: [e.g. `python3 main.py`, `sudo python3 main.py`]
+
+**Connection details**
+- Connection mode used: [ADB / Download mode / MTK (mtkclient) / serial]
+- Device model: [e.g. SM-G991B]
+- Android version (if known): [e.g. 13]
+- Does `adb devices` (or the tool's device check) see the phone? [yes / no / unauthorized / offline]
 
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+If applicable, add screenshots to help explain the problem.
 
 **Additional context**
-Add any other context about the problem here.
+Anything else that might be relevant (USB cable/port changes, drivers, whether
+it ever worked before, etc.).
