@@ -1,12 +1,12 @@
 #
 #             ███████████  █████                                   █████   ████ █████ ███████████
 #            ░░███░░░░░███░░███                                   ░░███   ███░ ░░███ ░█░░░███░░░█
-#  ████████   ░███    ░███ ░███████    ██████  ████████    ██████  ░███  ███    ░███ ░   ░███  ░ 
-# ░░███░░███  ░██████████  ░███░░███  ███░░███░░███░░███  ███░░███ ░███████     ░███     ░███    
-#  ░███ ░███  ░███░░░░░░   ░███ ░███ ░███ ░███ ░███ ░███ ░███████  ░███░░███    ░███     ░███    
-#  ░███ ░███  ░███         ░███ ░███ ░███ ░███ ░███ ░███ ░███░░░   ░███ ░░███   ░███     ░███    
-#  ████ █████ █████        ████ █████░░██████  ████ █████░░██████  █████ ░░████ █████    █████   
-# ░░░░ ░░░░░ ░░░░░        ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░░   ░░░░ ░░░░░    ░░░░░    
+#  ████████   ░███    ░███ ░███████    ██████  ████████    ██████  ░███  ███    ░███ ░   ░███  ░
+# ░░███░░███  ░██████████  ░███░░███  ███░░███░░███░░███  ███░░███ ░███████     ░███     ░███
+#  ░███ ░███  ░███░░░░░░   ░███ ░███ ░███ ░███ ░███ ░███ ░███████  ░███░░███    ░███     ░███
+#  ░███ ░███  ░███         ░███ ░███ ░███ ░███ ░███ ░███ ░███░░░   ░███ ░░███   ░███     ░███
+#  ████ █████ █████        ████ █████░░██████  ████ █████░░██████  █████ ░░████ █████    █████
+# ░░░░ ░░░░░ ░░░░░        ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░░   ░░░░ ░░░░░    ░░░░░
 #
 
 # IMPORTS AND WHY EACH ONE IS NEEDED
@@ -60,13 +60,13 @@ import traceback # Error handling
 VERSION = "1.6.8"
 DEBUGMODE = False
 
-# This program is free software: you can redistribute it and/or modify it 
-# under the terms of the GNU General Public License as published by the Free Software Foundation, 
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free Software Foundation,
 # either version 3 of the License, or any later version.
 
 # This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See the LICENSE (included in the nPhoneKIT source) for more details.
 
 # ===========================================================================================================
@@ -78,7 +78,7 @@ DEBUGMODE = False
 # At least 1 USB A or USB C port
 # Python
 # Everything in requirements.txt
-# 
+#
 
 # ============================================================================= #
 # You shouldn't edit anything below this line unless you know what you're doing #
@@ -131,7 +131,7 @@ debug_info = settings['debug_info']
 basic_success_checks = settings['basic_success_checks']
 contributionsuggestions = settings['contributionsuggestions']
 
-def load_strings(xml_path): 
+def load_strings(xml_path):
     tree = ET.parse(xml_path)
     root = tree.getroot()
     return {
@@ -291,7 +291,7 @@ class SerialManager: # AT command sender via class
 
         if not self.port: # No device connected
             if debug_info:
-                print(strings['noDeviceSermanError']) 
+                print(strings['noDeviceSermanError'])
         elif self.port:
             try:
                 self.ser = serial.Serial(self.port, self.baud, timeout=2) # Save the port for use with the rest of the class
@@ -309,7 +309,7 @@ class SerialManager: # AT command sender via class
 
         # Detect port for different systems/OSes
 
-        if system == "Windows": 
+        if system == "Windows":
             for i in range(1, 256):
                 try:
                     s = serial.Serial(f"COM{i}")
@@ -402,9 +402,9 @@ class SerialManagerWindows: # Version of SerialManager class specifically for Wi
         # Sort ports to prioritize ones that are more likely to be phones
         # Phones often have "USB" or "Mobile" in their description
         sorted_ports = sorted(ports, key=lambda p: (
-            "SAMSUNG" in p.description.upper() or 
-            "MOBILE" in p.description.upper() or 
-            "MODEM" in p.description.upper() or 
+            "SAMSUNG" in p.description.upper() or
+            "MOBILE" in p.description.upper() or
+            "MODEM" in p.description.upper() or
             "USB" in p.description.upper()
         ), reverse=True)
 
@@ -475,7 +475,7 @@ class AT:
                 f.write(result)
             except Exception: # If the connection isn't there, reset to attempt to gain the connection back
                 serman.reset()
-                time.sleep(1) 
+                time.sleep(1)
                 try:
                     result = serman.send(command)
                     if result is None:
@@ -1501,7 +1501,7 @@ def pullerrors():
 
 # Check for updates
 
-def check_for_update(): 
+def check_for_update():
     try:
         repo = "nlckysolutions/nPhoneKIT"
         url = f"https://api.github.com/repos/{repo}/releases/latest"
@@ -1624,7 +1624,7 @@ def adbMenu():
 
 def rt(): # Flush the output buffer. May be deprecated and replaced soon with a new output collection method
     """if os_config == "LINUX": # Flush output buffer on different OSes
-        os.system("sudo bash -c 'rm -f tmp_output.txt'") 
+        os.system("sudo bash -c 'rm -f tmp_output.txt'")
         os.system("sudo bash -c 'rm -f tmp_output_adb.txt'")
     elif os_config == "WINDOWS":
         os.system("del /F tmp_output.txt")
@@ -1676,7 +1676,7 @@ def show_messagebox_at(x, y, title, content): # Show a customizable message box
         return
 
     # Create a new top-level window
-    box = tk.Tk() 
+    box = tk.Tk()
     box.title(title)
     box.geometry(f"+{x}+{y}")
     box.resizable(False, False)
@@ -1827,7 +1827,7 @@ def modemUnlock(manufacturer, softUnlock=False): # Unlock the modem per-action i
                 AT.send("AT+ACTIVATE=0,0,0") # An activation sequence that unlocks the modem when paired with the above command.
 
 # Function that can parse DEVCONINFO in order to make it more readable
-def parse_devconinfo(raw_input): 
+def parse_devconinfo(raw_input):
     lines = raw_input.strip().splitlines()
     parsed_output = []
 
@@ -1944,7 +1944,7 @@ def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security p
     for m in methods:
         if m["id"] == "sam_2022_23":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:   
+            if picked:
                 print(strings['getVerInfo'], end="")
                 info = verinfo(False)
                 model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
@@ -2026,7 +2026,7 @@ def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
                     ]
 
                     ADBcommands = [ # Run list of commands in order to complete the unlock with newly-enabled ADB
-                        "shell settings put global setup_wizard_has_run 1", 
+                        "shell settings put global setup_wizard_has_run 1",
                         "shell settings put secure user_setup_complete 1",
                         "shell content insert --uri content://settings/secure --bind name:s:DEVICE_PROVISIONED --bind value:i:1",
                         "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:i:1",
@@ -2256,7 +2256,7 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
                 tthread.start() # Sends basic, anonymized success_checks info with only the model number.
             output = parse_devconinfo(output) # Make the output actually readable
             print(output) # Print the version info to the output box
-        else: 
+        else:
             print(strings['getVerInfo'], end="")
             if 1 == 1: # We should verify AT is working before running the below code (testAT is deprecated)
                 if not enable_preload:
@@ -2494,7 +2494,7 @@ def bloatRemove():
 
 def reboot_download_sam(): # Reboot Samsung device to download mode
     print(strings['rebootingDownloadMode'], end="")
-    MTPmenu() 
+    MTPmenu()
     AT.send("AT+FUS?") # Thankfully, no modem unlocking required for this command.
     if basic_success_checks:
         modemUnlock("SAMSUNG")
@@ -2630,7 +2630,7 @@ def featureRequest():
         print("Canceled.")
 
     data = {
-        "timestamp": time.time(), 
+        "timestamp": time.time(),
         "uuid": str(get_public_hardware_uuid()),
         "feature": featureDesc,
         "phoneKITversion": VERSION
@@ -2661,7 +2661,7 @@ def bugReport():
         print("Canceled.")
 
     data = {
-        "timestamp": time.time(), 
+        "timestamp": time.time(),
         "uuid": str(get_public_hardware_uuid()),
         "bug": bugDesc,
         "phoneKITversion": VERSION
