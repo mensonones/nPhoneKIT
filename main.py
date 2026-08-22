@@ -54,6 +54,7 @@ from nphonekit_action_support import (
     unlock_modem,
 )
 from nphonekit_samsung_actions import SamsungFrpActions
+from nphonekit_other_actions import macos_libusb_present, run_mtkclient
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1308,25 +1309,17 @@ def imeicheck():
     else:
         print(strings['imeiNotFound'])
 
-def macos_libusb_present(): # Check whether libusb is installed so mtkclient can actually reach USB devices on macOS
-    import ctypes.util
-    if ctypes.util.find_library("usb-1.0") or ctypes.util.find_library("usb"):
-        return True
-    # find_library doesn't always search Homebrew's prefixes, so check the common install locations directly
-    candidates = [
-        "/opt/homebrew/lib/libusb-1.0.dylib",  # Apple Silicon Homebrew
-        "/usr/local/lib/libusb-1.0.dylib",     # Intel Homebrew
-        "/opt/local/lib/libusb-1.0.dylib",     # MacPorts
-    ]
-    return any(os.path.exists(p) for p in candidates)
-
 def mtkclient():
-    runner = MtkClientRunner(os_config, sys.executable, macos_libusb_present)
-    if not runner.available():
-        print(strings['mtkLibusbMissing'])
-        show_messagebox_at(500, 200, "nPhoneKIT", strings['mtkLibusbMissing'])
-        return
-    runner.run()
+    run_mtkclient(
+        MtkClientRunner,
+        os_config,
+        sys.executable,
+        lambda message: (
+            print(message),
+            show_messagebox_at(500, 200, "nPhoneKIT", message),
+        ),
+        strings['mtkLibusbMissing'],
+    )
 
 def tkinput(title="Enter Value", text="Please enter a value:", placeholder="", ok_text="OK", cancel_text="Cancel"):
     app = QtWidgets.QApplication.instance()
