@@ -261,6 +261,7 @@ from nphonekit_devices import (  # noqa: E402
     AT,
     SerialManager,
     SerialManagerWindows,
+    SamsungPreloader,
     check_serial_permissions,
     is_root,
 )  # noqa: E402
@@ -304,49 +305,6 @@ def show_serial_permission_fix(command):
     ok_button = tk.Button(root, text="OK", command=root.destroy)
     ok_button.pack(pady=10)
     root.mainloop()
-
-async def preload_samsung_modem(serman2):
-    global enable_preload
-    global preload_error
-
-    if not enable_preload:
-        preload_done.set() # If preload isn't enabled, pretend as if preload has already succeeded
-        return
-
-    try:
-        system = platform.system()
-        output = ""
-
-        if system == "Linux": # Find connected devices on different OSes
-            output = subprocess.check_output(['lsusb']).decode().lower()
-        elif system == "Darwin":
-            output = subprocess.check_output(['system_profiler', 'SPUSBDataType']).decode().lower()
-        elif system == "Windows":
-            output = subprocess.check_output(['powershell', 'Get-PnpDevice']).decode().lower()
-
-        if "samsung" in output.lower():
-            if debug_info:
-                print(strings['samPreloadUsbDetected'])
-            # If a Samsung device is plugged in, preload its modem using the below commands
-            set_brand("Samsung") # For convenience, auto-select the SAMSUNG menu in the nPhoneKIT GUI
-            serman2.send("AT+SWATD=0")  # Send without await since it's serial and blocking
-            serman2.send("AT+ACTIVATE=0,0,0") # This and the above command do the same thing as modemUnlock("SAMSUNG"), except without infinitely waiting for preload_done, since modemUnlock uses the AT class which will follow preload_done
-            if debug_info:
-                print(strings['samPreloadComplete'])
-            preload_error = False
-        else:
-            if debug_info:
-                print(strings['samNoUsbFound'])
-            enable_preload = False
-            preload_error = True
-
-    except Exception as e:
-        if debug_info:
-            print(strings['samPreloadError'], e) # Usually error, but works most of the time reguardless.
-        enable_preload = False
-        preload_error = True
-
-    preload_done.set()
 
 def get_os_info():
     info = {}
@@ -2574,9 +2532,20 @@ def main():
 # ===================================
 
 serman1 = None
+preloader = None
+
+
+def disable_preload():
+    global enable_preload
+    enable_preload = False
+
+
+def set_preload_error(value):
+    global preload_error
+    preload_error = value
 
 def preload_thread():
-    asyncio.run(preload_samsung_modem(serman1))
+    asyncio.run(preloader.run())
 
 
 def run_app():
@@ -2587,7 +2556,7 @@ def run_app():
     background threads belong to the executable entrypoint and therefore
     happen only when the app is launched.
     """
-    global serman, serman1
+    global serman, serman1, preloader
 
     persist_settings()
 
@@ -2611,6 +2580,16 @@ def run_app():
         serman = SerialManager(strings, debug_info)
     serman1 = SerialManager(strings, debug_info)
     AT.configure(serman, lambda: enable_preload, preload_done, rt, strings)
+    preloader = SamsungPreloader(
+        serman1,
+        strings,
+        debug_info,
+        lambda: enable_preload,
+        disable_preload,
+        set_preload_error,
+        preload_done,
+        set_brand,
+    )
     threading.Thread(target=preload_thread, daemon=True).start()
 
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))

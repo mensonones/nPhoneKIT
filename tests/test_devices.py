@@ -1,5 +1,6 @@
 """Unit tests for device clients without requiring connected hardware."""
 
+import asyncio
 from types import SimpleNamespace
 import threading
 
@@ -132,3 +133,54 @@ def test_serial_permission_check_reports_distro_command():
 
 def test_serial_permission_check_skips_macos_group_prompt():
     assert devices.check_serial_permissions("MACOS", user="alice", user_groups=[])
+
+
+def test_samsung_preloader_runs_commands_when_usb_is_present():
+    class FakeSerial:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command):
+            self.commands.append(command)
+
+    serial_manager = FakeSerial()
+    done = threading.Event()
+    state = {"enabled": True, "error": None, "brand": None}
+    preloader = devices.SamsungPreloader(
+        serial_manager,
+        {},
+        False,
+        lambda: state["enabled"],
+        lambda value: state.update(enabled=value),
+        lambda value: state.update(error=value),
+        done,
+        lambda value: state.update(brand=value),
+        probe_usb=lambda system: "Samsung USB device",
+    )
+
+    asyncio.run(preloader.run())
+
+    assert serial_manager.commands == ["AT+SWATD=0", "AT+ACTIVATE=0,0,0"]
+    assert state == {"enabled": True, "error": False, "brand": "Samsung"}
+    assert done.is_set()
+
+
+def test_samsung_preloader_disables_when_usb_is_absent():
+    done = threading.Event()
+    state = {"enabled": True, "error": None}
+    preloader = devices.SamsungPreloader(
+        SimpleNamespace(send=lambda command: None),
+        {},
+        False,
+        lambda: state["enabled"],
+        lambda value: state.update(enabled=value),
+        lambda value: state.update(error=value),
+        done,
+        lambda value: None,
+        probe_usb=lambda system: "generic usb device",
+    )
+
+    asyncio.run(preloader.run())
+
+    assert state == {"enabled": False, "error": True}
+    assert done.is_set()
