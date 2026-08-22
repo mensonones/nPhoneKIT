@@ -23,7 +23,9 @@ jobs:
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Lint (ruff)
-        run: python -m ruff check main.py nphonekit_core.py tests/
+        # Lint the whole project (ruff.toml excludes the vendored deps/ tree),
+        # so every extracted module is covered, not just main.py + core.
+        run: python -m ruff check .
 
       - name: Byte-compile main.py (syntax check)
         # Cheap guard for syntax errors in the application entrypoint.
