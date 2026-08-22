@@ -2889,7 +2889,8 @@ class BusyOverlay(QtWidgets.QWidget):
         pen = QtGui.QPen(QtGui.QColor(255,255,255,220), 3)
         p.setPen(pen)
         # draw faint ring
-        p.setOpacity(0.2); p.drawEllipse(center, radius, radius)
+        p.setOpacity(0.2)
+        p.drawEllipse(center, radius, radius)
         # draw rotating arc
         p.setOpacity(1.0)
         p.save()
@@ -3085,7 +3086,9 @@ class SettingsDialog(QtWidgets.QDialog):
         btns = QtWidgets.QHBoxLayout()
         btnCancel = QtWidgets.QPushButton("Cancel")
         btnApply  = QtWidgets.QPushButton(strings.get('applyText','Apply'))
-        btns.addStretch(1); btns.addWidget(btnCancel); btns.addWidget(btnApply)
+        btns.addStretch(1)
+        btns.addWidget(btnCancel)
+        btns.addWidget(btnApply)
         layout.addLayout(btns)
 
         btnCancel.clicked.connect(self.reject)
@@ -3108,16 +3111,23 @@ class SettingsDialog(QtWidgets.QDialog):
             pic.setPixmap(pm)
         else:
             # draw placeholder gradient
-            pm = QtGui.QPixmap(40,40); pm.fill(QtCore.Qt.transparent)
+            pm = QtGui.QPixmap(40,40)
+            pm.fill(QtCore.Qt.transparent)
             qp = QtGui.QPainter(pm)
             grad = QtGui.QLinearGradient(0,0,40,40)
             grad.setColorAt(0, QtGui.QColor(124,77,255))
             grad.setColorAt(1, QtGui.QColor(3,218,198))
-            qp.setBrush(grad); qp.setPen(QtCore.Qt.NoPen); qp.drawRoundedRect(0,0,40,40,8,8); qp.end()
+            qp.setBrush(grad)
+            qp.setPen(QtCore.Qt.NoPen)
+            qp.drawRoundedRect(0,0,40,40,8,8)
+            qp.end()
             pic.setPixmap(pm)
         title = QtWidgets.QLabel(strings.get('settingsMenuTitleText','Settings'))
         title.setStyleSheet("font-size:18px; font-weight:700;")
-        h.addWidget(pic); h.addSpacing(10); h.addWidget(title); h.addStretch(1)
+        h.addWidget(pic)
+        h.addSpacing(10)
+        h.addWidget(title)
+        h.addStretch(1)
         return w
 
 # ------------ main window ------------
@@ -3169,7 +3179,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(splitter)
 
         # left: brand tabs + actions
-        left = QtWidgets.QWidget(); lyt = QtWidgets.QVBoxLayout(left); lyt.setContentsMargins(16,16,16,16); lyt.setSpacing(12)
+        left = QtWidgets.QWidget()
+        lyt = QtWidgets.QVBoxLayout(left)
+        lyt.setContentsMargins(16,16,16,16)
+        lyt.setSpacing(12)
         self.tabs = QtWidgets.QTabWidget()
         # fancy round tabs
         self.tabs.setDocumentMode(True)
@@ -3178,7 +3191,10 @@ class MainWindow(QtWidgets.QMainWindow):
         splitter.addWidget(left)
 
         # right: header + output
-        right = QtWidgets.QWidget(); rlyt = QtWidgets.QVBoxLayout(right); rlyt.setContentsMargins(0,0,12,12); rlyt.setSpacing(10)
+        right = QtWidgets.QWidget()
+        rlyt = QtWidgets.QVBoxLayout(right)
+        rlyt.setContentsMargins(0,0,12,12)
+        rlyt.setSpacing(10)
         header = self._build_header()
         rlyt.addWidget(header)
         self.output = QtWidgets.QTextEdit()
@@ -3221,33 +3237,45 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_header(self):
         bar = QtWidgets.QFrame()
         bar.setObjectName("Header")
-        hlay = QtWidgets.QHBoxLayout(bar); hlay.setContentsMargins(16,10,16,10)
+        hlay = QtWidgets.QHBoxLayout(bar)
+        hlay.setContentsMargins(16,10,16,10)
         # logo
-        logo = QtWidgets.QLabel(); logo.setFixedSize(36,36)
+        logo = QtWidgets.QLabel()
+        logo.setFixedSize(36,36)
         pth = _find_logo()
         if pth:
             pm = QtGui.QPixmap(pth).scaled(36,36, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             logo.setPixmap(pm)
         else:
-            pm = QtGui.QPixmap(36,36); pm.fill(QtCore.Qt.transparent)
+            pm = QtGui.QPixmap(36,36)
+            pm.fill(QtCore.Qt.transparent)
             qp = QtGui.QPainter(pm)
             grad = QtGui.QLinearGradient(0,0,36,36)
             grad.setColorAt(0, QtGui.QColor(124,77,255))
             grad.setColorAt(1, QtGui.QColor(3,218,198))
-            qp.setBrush(grad); qp.setPen(QtCore.Qt.NoPen); qp.drawRoundedRect(0,0,36,36,8,8); qp.end()
+            qp.setBrush(grad)
+            qp.setPen(QtCore.Qt.NoPen)
+            qp.drawRoundedRect(0,0,36,36,8,8)
+            qp.end()
             logo.setPixmap(pm)
         title = QtWidgets.QLabel("nPhoneKIT")
         title.setObjectName("AppTitle")
         subtitle = QtWidgets.QLabel(f"v{VERSION}")
         subtitle.setStyleSheet("color: rgba(255,255,255,0.85); font-size:13px;")
 
-        tbox = QtWidgets.QVBoxLayout(); tbox.setSpacing(0)
-        tbox.addWidget(title); tbox.addWidget(subtitle)
+        tbox = QtWidgets.QVBoxLayout()
+        tbox.setSpacing(0)
+        tbox.addWidget(title)
+        tbox.addWidget(subtitle)
 
         btnSettings = QtWidgets.QPushButton(strings.get('settingsMenuTitleText','Settings'))
         btnSettings.clicked.connect(self.open_settings)
 
-        hlay.addWidget(logo); hlay.addSpacing(10); hlay.addLayout(tbox); hlay.addStretch(1); hlay.addWidget(btnSettings)
+        hlay.addWidget(logo)
+        hlay.addSpacing(10)
+        hlay.addLayout(tbox)
+        hlay.addStretch(1)
+        hlay.addWidget(btnSettings)
         return bar
 
     def _brand_tab(self, title, actions):
@@ -3401,7 +3429,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowOpacity(0.0)
         anim = QtCore.QPropertyAnimation(self, b"windowOpacity", self)
         anim.setDuration(400 if not self._settings.get("slower_animations", False) else 900)
-        anim.setStartValue(0.0); anim.setEndValue(1.0); anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
 
 current_brand = strings.get('brandCurrent', 'Samsung')
 
