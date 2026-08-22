@@ -46,6 +46,7 @@ from nphonekit_services import (
     UpdateClient,
     public_hardware_uuid,
 )
+from nphonekit_maintenance import get_os_info
 import traceback # Error handling
 from typing import Tuple
 
@@ -316,76 +317,6 @@ def show_serial_permission_fix(command):
     ok_button = tk.Button(root, text="OK", command=root.destroy)
     ok_button.pack(pady=10)
     root.mainloop()
-
-def get_os_info():
-    info = {}
-    system = platform.system()
-
-    info["system"] = system
-    info["release"] = platform.release()
-    info["version"] = platform.version()
-    info["machine"] = platform.machine()
-    info["architecture"] = platform.architecture()[0]
-    info["python_version"] = platform.python_version()
-
-    if system == "Linux":
-        # Preferred: Python 3.10+ built-in parser for /etc/os-release
-        os_release = {}
-        try:
-            os_release = platform.freedesktop_os_release()
-        except AttributeError:
-            # Fallback for Python < 3.10: parse /etc/os-release manually
-            for path in ("/etc/os-release", "/usr/lib/os-release"):
-                if os.path.exists(path):
-                    with open(path) as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line or line.startswith("#") or "=" not in line:
-                                continue
-                            k, v = line.split("=", 1)
-                            os_release[k] = v.strip('"').strip("'")
-                    break
-
-        info["distro_name"] = os_release.get("NAME")            # e.g. "Kali GNU/Linux"
-        info["distro_pretty_name"] = os_release.get("PRETTY_NAME")  # e.g. "Kali GNU/Linux Rolling"
-        info["distro_id"] = os_release.get("ID")                 # e.g. "kali"
-        info["distro_id_like"] = os_release.get("ID_LIKE")       # e.g. "debian"
-        info["distro_version"] = os_release.get("VERSION")
-        info["distro_version_id"] = os_release.get("VERSION_ID")
-        info["distro_codename"] = os_release.get("VERSION_CODENAME")
-
-        # libc info (glibc vs musl, version)
-        try:
-            info["libc"] = platform.libc_ver()
-        except Exception:
-            info["libc"] = None
-
-        # kernel build details often live in /proc/version
-        try:
-            with open("/proc/version") as f:
-                info["kernel_build_string"] = f.read().strip()
-        except Exception:
-            info["kernel_build_string"] = None
-
-    elif system == "Windows":
-        win_ver = platform.win32_ver()  # (release, version, csd, ptype)
-        info["windows_release"] = win_ver[0]
-        info["windows_version"] = win_ver[1]
-        info["windows_service_pack"] = win_ver[2]
-        info["windows_type"] = win_ver[3]
-        try:
-            info["windows_edition"] = platform.win32_edition()  # e.g. "ServerStandard", "Core", "Professional"
-        except Exception:
-            info["windows_edition"] = None
-        try:
-            info["windows_is_iot"] = platform.win32_is_iot()
-        except Exception:
-            info["windows_is_iot"] = None
-
-    elif system == "Darwin":
-        info["mac_version"] = platform.mac_ver()  # (release, versioninfo, machine)
-
-    return info
 
 # Helper: worker used when we need to run the dialog in a new process.
 # This must be a top-level function for multiprocessing to work reliably.
