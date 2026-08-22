@@ -11,7 +11,6 @@
 
 # IMPORTS AND WHY EACH ONE IS NEEDED
 
-import time # Waiting before executing something
 import math
 import multiprocessing
 import os # Executing most commands
@@ -24,7 +23,6 @@ import sys # Getting basic system info
 import re # Finding strings within text
 import platform # Checking the current OS
 import threading # Using multiple threads
-import json # Parsing and creating JSON
 import webbrowser # Opening browser to any page
 import xml.etree.ElementTree as ET # Importing strings.xml
 from PyQt5 import QtCore, QtGui, QtWidgets # GUI
@@ -48,14 +46,12 @@ from nphonekit_runtime import initialize_runtime
 from nphonekit_settings import DEFAULT_SETTINGS, SettingsStore
 from nphonekit_maintenance_ui import get_output_text, show_serial_permission_fix
 from nphonekit_action_support import (
-    find_unlock_method,
     load_unlock_methods,
     maybe_show_contribution,
     unlock_modem,
 )
 from nphonekit_samsung_actions import SamsungFrpActions
 from nphonekit_other_actions import (
-    macos_libusb_present,
     run_lg_screen_unlock,
     run_mtkclient,
     run_moto_fastboot_frp,

@@ -40,7 +40,9 @@ def test_unlock_modem_forwards_arguments():
 
 def test_maybe_show_contribution_respects_setting():
     calls = []
-    prompt = lambda x, y: calls.append((x, y))
+
+    def prompt(x, y):
+        calls.append((x, y))
 
     maybe_show_contribution(False, prompt)
     maybe_show_contribution(True, prompt)
