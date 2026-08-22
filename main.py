@@ -45,6 +45,7 @@ from nphonekit_services import (
 )
 from nphonekit_maintenance import get_os_info, self_fix_serial
 from nphonekit_runtime import initialize_runtime
+from nphonekit_settings import DEFAULT_SETTINGS, SettingsStore
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -86,30 +87,8 @@ DEBUGMODE = False
 # ============================================================================= #
 
 SETTINGS_PATH = Path("settings.json") # Load settings externally
-
-default_settings = {
-    "dark_theme": True,
-    "hacker_font": False,
-    "slower_animations": False,
-    "update_check": False,
-    "enable_preload": True,
-    "debug_info": False,
-    "basic_success_checks": True,
-    "contributionsuggestions": True
-}
-
-if SETTINGS_PATH.exists(): # If settings exist, load them, otherwise use defaults.
-    try:
-        loaded = nphonekit_core.load_settings(SETTINGS_PATH)
-    except (json.JSONDecodeError, ValueError, OSError) as e:
-        # A corrupt or unreadable settings file used to be a hard crash on startup.
-        print(f"[nPhoneKIT] Could not read settings ({e}); falling back to defaults.")
-        loaded = {}
-    # Merge over defaults so a settings file written by an older version (missing
-    # keys added later) can't raise KeyError below and prevent the app opening.
-    settings = nphonekit_core.merge_settings(default_settings, loaded)
-else:
-    settings = default_settings.copy()
+settings_store = SettingsStore(SETTINGS_PATH, DEFAULT_SETTINGS)
+settings = settings_store.load_effective()
 
 dark_theme = settings['dark_theme']
 hacker_font = settings['hacker_font']
@@ -133,19 +112,15 @@ strings = load_strings("strings.xml") # Load almost every string from strings.xm
 
 # Load settings
 def load_settings():
-    return nphonekit_core.load_settings(SETTINGS_PATH)
+    return settings_store.load_saved()
 
 # Save settings
 def save_settings(new_settings):
-    nphonekit_core.save_settings(SETTINGS_PATH, new_settings)
+    settings_store.save(new_settings)
 
 
 def persist_settings():
-    """Persist the merged settings during application startup, not import."""
-    try:
-        nphonekit_core.save_settings(SETTINGS_PATH, settings)
-    except OSError as e:
-        print(f"[nPhoneKIT] Could not write settings: {e}")
+    settings_store.persist(settings)
 
 if platform.system() == "Windows":
     os_config = "WINDOWS"
