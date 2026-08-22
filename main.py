@@ -27,9 +27,6 @@ import platform # Checking the current OS
 import asyncio # Running different actions asynchronously
 import threading # Using multiple threads
 import json # Parsing and creating JSON
-import requests # Requesting different servers
-import uuid # Parsing and creating UUIDs
-import hashlib # Hashing strings
 import webbrowser # Opening browser to any page
 import xml.etree.ElementTree as ET # Importing strings.xml
 from PyQt5 import QtCore, QtGui, QtWidgets # GUI
@@ -43,7 +40,12 @@ from nphonekit_ui import (
 from datetime import datetime, timedelta
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
-from nphonekit_services import FeedbackClient, UpdateClient
+from nphonekit_services import (
+    FeedbackClient,
+    TelemetryClient,
+    UpdateClient,
+    public_hardware_uuid,
+)
 import traceback # Error handling
 from typing import Tuple
 
@@ -1077,14 +1079,7 @@ def check_for_update():
         print(strings['updateCheckFailed'])
 
 def get_public_hardware_uuid():
-    mac = uuid.getnode()
-    mac_str = str(mac).encode('utf-8')
-
-    # Hash the MAC so it's not identifying
-    hashed_mac = hashlib.sha256(mac_str).hexdigest()
-
-    # Optionally convert to UUID format (UUID5 with a fixed namespace)
-    return uuid.UUID(hashlib.md5(hashed_mac.encode()).hexdigest())
+    return public_hardware_uuid()
 
 FIREBASE_URL = "https://nphonekit-default-rtdb.firebaseio.com/" # URL for success checks
 
@@ -1096,52 +1091,11 @@ FIREBASE_URL = "https://nphonekit-default-rtdb.firebaseio.com/" # URL for succes
 TELEMETRY_ENABLED = False
 
 def success_checks(uuid, model, action, status, first=True):
-    if not TELEMETRY_ENABLED:
-        return  # Automatic telemetry disabled: never contact external servers.
-    if basic_success_checks:
-        if first:
-            data = {
-                "timestamp": time.time(), # Basic success check info
-                "uuid": str(uuid), # Private hashed identifier in order to get anonymous active user estimation
-                "model": model.group(1) if model else "Unknown", # Check what model that the below action works on, anonymously
-                "action": action, # The action, for example "FRP_Unlock_2024"
-                "status": status, # Whether the action succeeded or failed
-                "phoneKITversion": VERSION, # Version of nPhoneKIT to get anonymous version usage estimation
-                #"osinfo": json.dumps(get_os_info()), #no longer needed here
-                "errors": pullerrors() # Any errors the program caught that can be used for debugging
-            }
-
-            try:
-                requests.post(f"{FIREBASE_URL}/success_checks_v2.json", json=data)
-            except Exception:
-                pass
-        else:
-            data = {
-                "timestamp": time.time(), # Same stuff as above, in order to get an anonymous active user estimation
-                "uuid": str(uuid),
-                "model": "NOT_First",
-                "action": "NOT_First",
-                "status": "Success",
-                "phoneKITversion": VERSION
-            }
-
-            try:
-                requests.post(f"{FIREBASE_URL}/success_checks.json", json=data)
-            except Exception:
-                pass
-
-            if not os.path.isfile(".notfirst"):
-                data = {
-                    "timestamp": time.time(), # Basic success check info
-                    "uuid": str(uuid), # Private hashed identifier in order to get anonymous active user estimation
-                    "osinfo": json.dumps(get_os_info()), # The OS (linux, windows, etc)
-                }
-
-                try:
-                    requests.post(f"{FIREBASE_URL}/success_checks+oi.json", json=data)
-                    Path(__file__).parent.joinpath(".notfirst").touch()
-                except Exception:
-                    pass
+    TelemetryClient(
+        FIREBASE_URL, TELEMETRY_ENABLED, basic_success_checks, VERSION,
+        pull_errors=pullerrors, get_os_info=get_os_info,
+        marker_path=Path(__file__).parent / ".notfirst",
+    ).submit(uuid, model, action, status, first)
 
 # =============================================
 #  Different instructions for the user
