@@ -46,6 +46,7 @@ from nphonekit_services import (
 from nphonekit_maintenance import get_os_info, self_fix_serial
 from nphonekit_runtime import initialize_runtime
 from nphonekit_settings import DEFAULT_SETTINGS, SettingsStore
+from nphonekit_maintenance_ui import get_output_text, show_serial_permission_fix
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -187,23 +188,6 @@ def privacyupdate():
 
 # --- PRIVACY_UPDATER_END ---
 
-
-def show_serial_permission_fix(command):
-    """Present the platform-specific serial permission command to the user."""
-    root = tk.Tk()
-    root.title("Serial Permission Fix Required")
-    root.geometry("500x250")
-    label = tk.Label(root, text="To enable serial access, run this command in your terminal:", font=("Arial", 12))
-    label.pack(pady=10)
-    text_box = tk.Text(root, height=2, font=("Courier", 12))
-    text_box.pack(padx=20, pady=10, fill="both")
-    text_box.insert("1.0", command)
-    text_box.config(state="disabled")
-    reboot_label = tk.Label(root, text="After running the command, reboot your system.", font=("Arial", 10))
-    reboot_label.pack(pady=10)
-    ok_button = tk.Button(root, text="OK", command=root.destroy)
-    ok_button.pack(pady=10)
-    root.mainloop()
 
 # Helper: worker used when we need to run the dialog in a new process.
 # This must be a top-level function for multiprocessing to work reliably.
@@ -860,11 +844,6 @@ def stw(
 
     return bool(result["value"])
 
-def pullerrors():
-    if UiMainWindow.instance is None:
-        return ""
-    return UiMainWindow.instance.output.toPlainText()
-
 # Check for updates
 
 def check_for_update():
@@ -911,7 +890,8 @@ TELEMETRY_ENABLED = False
 def success_checks(uuid, model, action, status, first=True):
     TelemetryClient(
         FIREBASE_URL, TELEMETRY_ENABLED, basic_success_checks, VERSION,
-        pull_errors=pullerrors, get_os_info=get_os_info,
+        pull_errors=lambda: get_output_text(UiMainWindow.instance),
+        get_os_info=get_os_info,
         marker_path=Path(__file__).parent / ".notfirst",
     ).submit(uuid, model, action, status, first)
 
