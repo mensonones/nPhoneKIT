@@ -207,3 +207,108 @@ class InstantTooltips(QtCore.QObject):
             QtWidgets.QToolTip.showText(position, text, widget)
             if self.hide_ms > 0:
                 QtCore.QTimer.singleShot(self.hide_ms, QtWidgets.QToolTip.hideText)
+
+
+class SettingsDialog(QtWidgets.QDialog):
+    """Settings editor with application services supplied by the caller."""
+
+    def __init__(self, parent=None, settings=None, strings=None, save_settings=None, find_logo=None):
+        super().__init__(parent)
+        self.strings = strings or {}
+        self._save_settings = save_settings
+        self._find_logo = find_logo or (lambda: None)
+        self.setWindowTitle(self.strings.get("settingsMenuTitleText", "Settings"))
+        self.setModal(True)
+        self.resize(520, 380)
+        self.settings = dict(settings or {})
+        self.setStyleSheet("""
+            QDialog { background-color: #000000; }
+            QCheckBox { color: white; }
+            QCheckBox::indicator {
+                width: 18px; height: 18px; border: 2px solid #888;
+                border-radius: 4px; background: black;
+            }
+            QCheckBox::indicator:checked {
+                background: #4CAF50; border: 2px solid #4CAF50;
+            }
+        """)
+
+        main_keys = [
+            "dark_theme", "hacker_font", "slower_animations",
+            "update_check", "enable_preload", "contributionsuggestions",
+        ]
+        dev_keys = ["debug_info", "basic_success_checks"]
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(self._logo_widget())
+
+        grid = QtWidgets.QGridLayout()
+        self.boxes = {}
+        for index, key in enumerate(main_keys):
+            label = "Contribution Suggestions" if key == "contributionsuggestions" else key.replace("_", " ").title()
+            checkbox = QtWidgets.QCheckBox(label)
+            checkbox.setChecked(bool(self.settings.get(key, False)))
+            self.boxes[key] = checkbox
+            grid.addWidget(checkbox, index // 2, index % 2)
+        layout.addLayout(grid)
+
+        layout.addSpacing(8)
+        dev_label = QtWidgets.QLabel(self.strings.get("devSettingsTitle", "Developer Settings"))
+        dev_label.setStyleSheet("color:#aaa; font-weight:600; margin-top:6px;")
+        layout.addWidget(dev_label)
+
+        dev_grid = QtWidgets.QGridLayout()
+        for index, key in enumerate(dev_keys):
+            checkbox = QtWidgets.QCheckBox(key.replace("_", " ").title())
+            checkbox.setChecked(bool(self.settings.get(key, False)))
+            self.boxes[key] = checkbox
+            dev_grid.addWidget(checkbox, index // 2, index % 2)
+        layout.addLayout(dev_grid)
+
+        layout.addStretch(1)
+        buttons = QtWidgets.QHBoxLayout()
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        apply_button = QtWidgets.QPushButton(self.strings.get("applyText", "Apply"))
+        buttons.addStretch(1)
+        buttons.addWidget(cancel_button)
+        buttons.addWidget(apply_button)
+        layout.addLayout(buttons)
+        cancel_button.clicked.connect(self.reject)
+        apply_button.clicked.connect(self._apply)
+
+    def _apply(self):
+        for key, checkbox in self.boxes.items():
+            self.settings[key] = bool(checkbox.isChecked())
+        if self._save_settings is not None:
+            self._save_settings(self.settings)
+        self.accept()
+
+    def _logo_widget(self):
+        widget = QtWidgets.QFrame()
+        layout = QtWidgets.QHBoxLayout(widget)
+        picture = QtWidgets.QLabel()
+        picture.setFixedSize(40, 40)
+        path = self._find_logo()
+        if path:
+            pixmap = QtGui.QPixmap(path).scaled(
+                40, 40, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation
+            )
+            picture.setPixmap(pixmap)
+        else:
+            pixmap = QtGui.QPixmap(40, 40)
+            pixmap.fill(QtCore.Qt.transparent)
+            painter = QtGui.QPainter(pixmap)
+            gradient = QtGui.QLinearGradient(0, 0, 40, 40)
+            gradient.setColorAt(0, QtGui.QColor(124, 77, 255))
+            gradient.setColorAt(1, QtGui.QColor(3, 218, 198))
+            painter.setBrush(gradient)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.drawRoundedRect(0, 0, 40, 40, 8, 8)
+            painter.end()
+            picture.setPixmap(pixmap)
+        title = QtWidgets.QLabel(self.strings.get("settingsMenuTitleText", "Settings"))
+        title.setStyleSheet("font-size:18px; font-weight:700;")
+        layout.addWidget(picture)
+        layout.addSpacing(10)
+        layout.addWidget(title)
+        layout.addStretch(1)
+        return widget
