@@ -48,6 +48,7 @@ from nphonekit_runtime import initialize_runtime
 from nphonekit_settings import DEFAULT_SETTINGS, SettingsStore
 from nphonekit_maintenance_ui import get_output_text, show_serial_permission_fix
 from nphonekit_action_support import (
+    find_unlock_method,
     load_unlock_methods,
     maybe_show_contribution,
     unlock_modem,
@@ -1070,9 +1071,9 @@ def formrequest():
 # =============================================
 
 def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "sam_pre_2022":
+    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_pre_2022")
+    if method:
+            m = method
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
             if picked:
                 print(strings['getVerInfo'], end="")
@@ -1132,9 +1133,9 @@ def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
                         formrequest()
 
 def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security patch update
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "sam_2022_23":
+    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_2022_23")
+    if method:
+            m = method
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
             if picked:
                 print(strings['getVerInfo'], end="")
@@ -1189,9 +1190,9 @@ def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security p
                         formrequest()
 
 def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "sam_2024":
+    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_2024")
+    if method:
+            m = method
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
             if picked:
                 print(strings['getVerInfo'], end="")
@@ -1276,9 +1277,9 @@ def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
                         formrequest()
 
 def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch update
-    methods = load_unlock_methods("unlocks.json")
-    for m in methods:
-        if m["id"] == "sam_15_16":
+    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_15_16")
+    if method:
+            m = method
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
             if picked:
                 print(strings['getVerInfo'], end="")

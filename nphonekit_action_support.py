@@ -9,6 +9,11 @@ def load_unlock_methods(path="unlocks.json"):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def find_unlock_method(methods, method_id):
+    """Return the configured unlock method with ``method_id``, if present."""
+    return next((method for method in methods if method.get("id") == method_id), None)
+
+
 def unlock_modem(unlocker, manufacturer, soft_unlock=False):
     """Unlock a modem when the runtime preloader provided a client."""
     if unlocker is not None:
