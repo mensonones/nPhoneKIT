@@ -108,6 +108,17 @@ NOT_READY = "not_ready"
 MULTIPLE_DEVICES = "multiple_devices"
 
 
+def has_required_group(user_groups, required_groups) -> bool:
+    """True if the user belongs to at least one of the serial-access groups.
+
+    Pure decision half of the Linux serial-permission pre-flight in main.py
+    (which must still gather ``user_groups`` from the OS). Kept here so the
+    membership logic is unit-tested and can't silently regress.
+    """
+    user = set(user_groups or [])
+    return any(g in user for g in (required_groups or []))
+
+
 def usable_devices(pairs: list[tuple[str, str]]) -> list[str]:
     """Return serials of devices in the ready ``device`` state."""
     return [serial for serial, state in pairs if state == "device"]

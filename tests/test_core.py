@@ -178,3 +178,27 @@ def test_select_unknown_state_is_not_ready():
 def test_usable_devices_filters_to_ready_only():
     pairs = [("AAAA", "device"), ("BBBB", "offline"), ("CCCC", "device")]
     assert core.usable_devices(pairs) == ["AAAA", "CCCC"]
+
+
+# ---------------------------------------------------------------------------
+# has_required_group  (Linux serial-permission decision)
+# ---------------------------------------------------------------------------
+
+SERIAL_GROUPS = ["dialout", "uucp", "lock", "tty"]
+
+
+def test_has_required_group_member():
+    assert core.has_required_group(["wheel", "dialout"], SERIAL_GROUPS) is True
+
+
+def test_has_required_group_not_member():
+    assert core.has_required_group(["wheel", "sudo"], SERIAL_GROUPS) is False
+
+
+def test_has_required_group_empty_user_groups():
+    assert core.has_required_group([], SERIAL_GROUPS) is False
+
+
+def test_has_required_group_handles_none():
+    assert core.has_required_group(None, SERIAL_GROUPS) is False
+    assert core.has_required_group(["dialout"], None) is False
