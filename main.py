@@ -115,7 +115,7 @@ if SETTINGS_PATH.exists(): # If settings exist, load them, otherwise use default
         loaded = {}
     # Merge over defaults so a settings file written by an older version (missing
     # keys added later) can't raise KeyError below and prevent the app opening.
-    settings = {**default_settings, **loaded}
+    settings = nphonekit_core.merge_settings(default_settings, loaded)
 else:
     settings = default_settings.copy()
 
@@ -510,14 +510,7 @@ class ADB: # ADB class for sending ADB commands if needed
             result = ADB._run(adb_path, "devices", timeout=10)
         except Exception: # Includes subprocess.TimeoutExpired if adb wedges on a half-enumerated device; treat as "nothing visible yet"
             return []
-        pairs = []
-        for line in (result.stdout or "").splitlines()[1:]: # Skip the "List of devices attached" header
-            line = line.strip()
-            if not line or "\t" not in line:
-                continue
-            serial, state = line.split("\t", 1)
-            pairs.append((serial.strip(), state.strip()))
-        return pairs
+        return nphonekit_core.parse_adb_devices(result.stdout)
 
     def wait_for_device(timeout=40): # Poll adb until an authorized device appears. Returns 'device', 'unauthorized', or 'none'.
         adb_path = ADB.path()
@@ -2472,9 +2465,8 @@ def reboot_download_sam(): # Reboot Samsung device to download mode
 
 def imeicheck():
     info = verinfo(False)
-    match = re.search(r'IMEI:\s*([0-9]+)', info)
-    if match:
-        imei = match.group(1)
+    imei = nphonekit_core.parse_imei(info)
+    if imei:
         messagebox.showinfo("nPhoneKIT", strings['imeiCheckGuide'])
         if os_config in ("WINDOWS", "MACOS"): # macOS opens the browser the same way Windows does; without this the IMEI page never opens on Mac
             webbrowser.open_new_tab(f"https://www.imei.info/services/blacklist-simple/samsung/check-free/?imei={str(imei)}")
