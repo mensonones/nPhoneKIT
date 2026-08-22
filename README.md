@@ -214,7 +214,7 @@ With **nPhoneKIT**, there’s no "magic click" – just real commands and real t
 
 nPhoneKIT is organized as `main.py` (the application shell) plus focused
 `nphonekit_*` modules, covered by a unit-test suite that runs in CI on
-Python 3.10 and 3.12.
+Python 3.10 and 3.12. See [ARCHITECTURE.md](ARCHITECTURE.md) for a module map.
 
 Set up a dev environment and run the same checks CI does:
 
