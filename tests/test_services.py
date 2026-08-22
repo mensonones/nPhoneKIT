@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from nphonekit_services import FeedbackClient, UpdateClient
+from nphonekit_services import FeedbackClient, TelemetryClient, UpdateClient, public_hardware_uuid
 
 
 def test_feedback_client_submits_feature_to_expected_endpoint():
@@ -58,3 +58,46 @@ def test_update_client_reads_release_tag_and_strips_both_v_prefixes():
     assert calls == [
         ("https://api.github.com/repos/nlckysolutions/nPhoneKIT/releases/latest", 4)
     ]
+
+
+def test_public_hardware_uuid_is_stable_and_hashed():
+    first = public_hardware_uuid(12345)
+    second = public_hardware_uuid(12345)
+
+    assert first == second
+    assert str(first) != "12345"
+
+
+def test_telemetry_client_does_not_post_when_disabled(tmp_path):
+    calls = []
+    client = TelemetryClient(
+        "https://example.test", False, True, "1.2.3",
+        post=lambda *args, **kwargs: calls.append((args, kwargs)),
+        marker_path=tmp_path / ".notfirst",
+    )
+
+    client.submit("UUID", None, "ACTION", "Success")
+
+    assert calls == []
+
+
+def test_telemetry_client_posts_first_payload(tmp_path):
+    calls = []
+    client = TelemetryClient(
+        "https://example.test", True, True, "1.2.3",
+        post=lambda url, **kwargs: calls.append((url, kwargs)),
+        pull_errors=lambda: "output",
+        marker_path=tmp_path / ".notfirst",
+        clock=lambda: 123.0,
+    )
+
+    client.submit("UUID", None, "ACTION", "Success")
+
+    assert calls == [(
+        "https://example.test/success_checks_v2.json",
+        {"json": {
+            "timestamp": 123.0, "uuid": "UUID", "model": "Unknown",
+            "action": "ACTION", "status": "Success",
+            "phoneKITversion": "1.2.3", "errors": "output",
+        }},
+    )]
