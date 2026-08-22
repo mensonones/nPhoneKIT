@@ -39,6 +39,8 @@ from PyQt5.QtGui import QFont
 from nphonekit_ui import (
     BusyOverlay,
     InstantTooltips,
+    MainWindow as UiMainWindow,
+    MainWindowServices,
     QtDialogHelper,
     QtRedirectText,
     SettingsDialog,
@@ -1489,9 +1491,9 @@ class FastbootPartitionEraser:
         return nphonekit_core.parse_fastboot_devices(out)
 
 def pullerrors():
-    if MainWindow.instance is None:
+    if UiMainWindow.instance is None:
         return ""
-    return MainWindow.instance.output.toPlainText()
+    return UiMainWindow.instance.output.toPlainText()
 
 # Check for updates
 
@@ -2843,7 +2845,7 @@ def _material_qss(dark=True, hacker=False):
 qt_dialog_helper = None
 
 # ------------ main window ------------
-class MainWindow(QtWidgets.QMainWindow):
+class LegacyMainWindow(QtWidgets.QMainWindow):
     instance = None  # for set_brand() global bridge
 
     # UI changes - Primary and Secondary button styles
@@ -2875,7 +2877,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        MainWindow.instance = self
+        LegacyMainWindow.instance = self
 
         self.setWindowTitle("nPhoneKIT")
         self.resize(1550, 860)
@@ -3131,11 +3133,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
 current_brand = strings.get('brandCurrent', 'Samsung')
 
+def build_ui_actions():
+    return {
+        "frp_unlock_android15_16": frp_unlock_android15_16,
+        "frp_unlock_2024": frp_unlock_2024,
+        "frp_unlock_2022": frp_unlock_aug2022_to_dec2022,
+        "frp_unlock_pre_2022": frp_unlock_pre_aug2022,
+        "verinfo": verinfo,
+        "reboot_sam": reboot_sam,
+        "reboot_download_sam": reboot_download_sam,
+        "wifitest": wifitest,
+        "imeicheck": imeicheck,
+        "bloat_remove": bloatRemove,
+        "lg_screen_unlock": LG_screen_unlock,
+        "moto_fastboot_frp": MotoFastbootFRP1,
+        "mtkclient": mtkclient,
+        "reboot": reboot,
+        "set_fake_battery": setFakeBatteryPercent,
+        "reset_fake_battery": resetBatteryPercent,
+        "feature_request": featureRequest,
+        "bug_report": bugReport,
+    }
+
 def select_brand(name):
     global current_brand
     current_brand = name
-    if MainWindow.instance:
-        MainWindow.instance.set_brand(name)
+    if UiMainWindow.instance:
+        UiMainWindow.instance.set_brand(name)
 
 def set_brand(name):
     select_brand(name)
@@ -3160,7 +3184,16 @@ def main():
     fast_tips = InstantTooltips(delay_ms=1, hide_ms=299000)
     app.installEventFilter(fast_tips)
 
-    win = MainWindow()
+    services = MainWindowServices(
+        strings=strings,
+        version=VERSION,
+        actions=build_ui_actions(),
+        load_settings=load_settings,
+        save_settings=save_settings,
+        find_logo=_find_logo,
+        material_qss=_material_qss,
+    )
+    win = UiMainWindow(services)
     win.show()
     sys.exit(app.exec_())
 
