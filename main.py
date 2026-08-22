@@ -2399,6 +2399,16 @@ def reboot_sam(): # Crash a Samsung phone to reboot
 def bloatRemove():
     print(strings['uninstallingPackages'], end="")
     adbMenu()
+
+    # Pre-flight: only debloat when exactly one ready device is connected, so
+    # `pm uninstall` can't run against the wrong phone. Target it explicitly.
+    serial, reason = nphonekit_core.select_target_device(ADB.devices())
+    if reason:
+        msg = nphonekit_core.describe_selection_reason(reason)
+        print(strings['failText'])
+        print(msg)
+        return
+
     # Samsung ONLY
     packages = [
         # Samsung default bloatware
@@ -2466,7 +2476,7 @@ def bloatRemove():
         "com.tmobile.pr.adapt"
     ]
     for package in packages:
-        ADB.send(f"shell pm uninstall --user 0 {package}")
+        ADB.send(f"-s {serial} shell pm uninstall --user 0 {package}")
         if "Success" in readOutput("ADB") or "[n" in readOutput("ADB") or "age:" in readOutput("ADB"):
             continue
         else:
