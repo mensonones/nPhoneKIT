@@ -59,7 +59,7 @@ from nphonekit_other_actions import (
     set_fake_battery_percent,
     submit_feedback,
 )
-from nphonekit_ui_helpers import find_logo, material_qss
+from nphonekit_ui_helpers import find_logo, material_qss, prompt_input
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1286,70 +1286,12 @@ def mtkclient():
     )
 
 def tkinput(title="Enter Value", text="Please enter a value:", placeholder="", ok_text="OK", cancel_text="Cancel"):
-    app = QtWidgets.QApplication.instance()
-    if app is not None:
-        if qt_dialog_helper is None:
-            init_qt_dialog_helper()
-        if app.thread() != QtCore.QThread.currentThread():
-            done = threading.Event()
-            result = {}
-            qt_dialog_helper.request_input.emit(title, text, placeholder, ok_text, cancel_text, result, done)
-            done.wait()
-            return result.get("value")
-        value, ok = QtWidgets.QInputDialog.getText(None, title, text, text=placeholder)
-        if ok and value != placeholder:
-            return value
-        return None
-
-    result = {"value": None}
-
-    def on_submit():
-        val = entry.get()
-        if val != placeholder:
-            result["value"] = val
-        popup.quit()
-
-    def on_cancel():
-        popup.quit()
-
-    popup = tk.Tk()
-    popup.title(title)
-    popup.geometry("300x150")
-    popup.resizable(False, False)
-
-    label = tk.Label(popup, text=text)
-    label.pack(pady=(15, 5))
-
-    entry = tk.Entry(popup, width=30)
-    entry.insert(0, placeholder)
-    entry.pack(pady=5)
-    entry.focus()
-    entry.config(fg='grey')
-
-    def on_focus_in(event):
-        if entry.get() == placeholder:
-            entry.delete(0, tk.END)
-            entry.config(fg='black')
-
-    def on_focus_out(event):
-        if entry.get() == "":
-            entry.insert(0, placeholder)
-            entry.config(fg='grey')
-
-    entry.bind("<FocusIn>", on_focus_in)
-    entry.bind("<FocusOut>", on_focus_out)
-
-    button_frame = tk.Frame(popup)
-    button_frame.pack(pady=10)
-
-    tk.Button(button_frame, text=ok_text, command=on_submit, width=10).pack(side=tk.LEFT, padx=5)
-    tk.Button(button_frame, text=cancel_text, command=on_cancel, width=10).pack(side=tk.LEFT, padx=5)
-
-    popup.protocol("WM_DELETE_WINDOW", on_cancel)
-    popup.mainloop()
-    popup.destroy()
-
-    return result["value"]
+    return prompt_input(
+        title, text, placeholder, ok_text, cancel_text,
+        qt_app=QtWidgets.QApplication.instance(), qt_widgets=QtWidgets,
+        qt_core=QtCore, dialog_helper=qt_dialog_helper,
+        init_dialog_helper=init_qt_dialog_helper, tk_module=tk,
+    )
 
 def featureRequest():
     submit_feedback(
