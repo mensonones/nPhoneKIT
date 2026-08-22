@@ -273,7 +273,7 @@ def _stw_worker(conn, title, desc, pros, cons, minutes, execute_text, cancel_tex
     win.after(1000, _tick)
 
     eta_time = (datetime.now() + timedelta(minutes=minutes)).strftime("%I:%M %p").lstrip("0")
-    eta_label = tk.Label(right_frame, text=f"⏱ {minutes} min\n🕓 Ends at: {eta_time}", bg=card_bg, fg=text_primary, font=("Segoe UI", 12), justify="center")
+    eta_label = tk.Label(right_frame, text=f"{minutes} min\nEnds at: {eta_time}", bg=card_bg, fg=text_primary, font=("Segoe UI", 12), justify="center")
     eta_label.pack(pady=(6,0))
 
     # keyboard handling
@@ -611,7 +611,7 @@ def stw(
     win.after(1000, _tick_local)
 
     eta_time = (datetime.now() + timedelta(minutes=minutes)).strftime("%I:%M %p").lstrip("0")
-    eta_label = tk.Label(right_frame, text=f"⏱ {minutes} min\n🕓 Ends at: {eta_time}", bg=card_bg, fg=text_primary, font=("Segoe UI", 12), justify="center")
+    eta_label = tk.Label(right_frame, text=f"{minutes} min\nEnds at: {eta_time}", bg=card_bg, fg=text_primary, font=("Segoe UI", 12), justify="center")
     eta_label.pack(pady=(6,0))
 
     def _on_key(event):

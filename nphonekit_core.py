@@ -64,21 +64,21 @@ def build_tab_specs(strings: dict, actions: dict) -> list[tuple[str, list[tuple[
     """Build the brand-tab action map without importing GUI or device code."""
     text = strings.get
     samsung = [
-        ("FRP Unlock Android 15/16 🔓", "", actions["frp_unlock_android15_16"]),
-        (text("frpUnlock2024", "FRP Unlock 2024 🔓"), text("frpUnlock2024info", ""), actions["frp_unlock_2024"]),
-        (text("frpUnlock2022", "FRP Unlock 2022 ⛓️"), text("frpUnlock2022info", ""), actions["frp_unlock_2022"]),
-        (text("frpUnlockPre2022", "FRP Unlock pre-2022 🔓"), text("frpUnlockPre2022info", ""), actions["frp_unlock_pre_2022"]),
-        (text("getVerInfo", "Get Version Info 🧾"), text("getVerInfoTooltip", ""), actions["verinfo"]),
-        (text("crashReboot", "Crash/Reboot ⚡"), text("crashRebootInfo", ""), actions["reboot_sam"]),
-        (text("samRebootDownloadMode", "Reboot to Download ⬇️"), text("samRebootDownloadModeInfo", ""), actions["reboot_download_sam"]),
-        (text("samWifitest", "WIFITEST 🔧"), text("samWifitestInfo", ""), actions["wifitest"]),
-        (text("samImeiCheck", "IMEI Check 🔍"), text("samImeiCheckInfo", ""), actions["imeicheck"]),
-        (text("samRemoveBloat", "Remove Bloat 🧹"), text("samRemoveBloatInfo", ""), actions["bloat_remove"]),
+        ("FRP Unlock Android 15/16", "", actions["frp_unlock_android15_16"]),
+        (text("frpUnlock2024", "FRP Unlock 2024"), text("frpUnlock2024info", ""), actions["frp_unlock_2024"]),
+        (text("frpUnlock2022", "FRP Unlock 2022"), text("frpUnlock2022info", ""), actions["frp_unlock_2022"]),
+        (text("frpUnlockPre2022", "FRP Unlock pre-2022"), text("frpUnlockPre2022info", ""), actions["frp_unlock_pre_2022"]),
+        (text("getVerInfo", "Get Version Info"), text("getVerInfoTooltip", ""), actions["verinfo"]),
+        (text("crashReboot", "Crash/Reboot"), text("crashRebootInfo", ""), actions["reboot_sam"]),
+        (text("samRebootDownloadMode", "Reboot to Download"), text("samRebootDownloadModeInfo", ""), actions["reboot_download_sam"]),
+        (text("samWifitest", "WIFITEST"), text("samWifitestInfo", ""), actions["wifitest"]),
+        (text("samImeiCheck", "IMEI Check"), text("samImeiCheckInfo", ""), actions["imeicheck"]),
+        (text("samRemoveBloat", "Remove Bloat"), text("samRemoveBloatInfo", ""), actions["bloat_remove"]),
     ]
-    lg = [(text("lgScreenUnlockLabel", "LG Screen Unlock 🔓"), text("lgScreenUnlockTooltip", ""), actions["lg_screen_unlock"])]
+    lg = [(text("lgScreenUnlockLabel", "LG Screen Unlock"), text("lgScreenUnlockTooltip", ""), actions["lg_screen_unlock"])]
     moto = [(text("motoFastbootUnlockFRP1", "Fastboot-Based FRP Unlock"), text("fbbFRPu1tooltip", ""), actions["moto_fastboot_frp"])]
-    mtk = [(text("mtkClientLabel", "MTK Client GUI 🚀"), text("mtkClientTooltip", ""), actions["mtkclient"])]
-    android = [(text("crashReboot", "Crash/Reboot ⚡"), text("crashRebootInfo", ""), actions["reboot"])]
+    mtk = [(text("mtkClientLabel", "MTK Client GUI"), text("mtkClientTooltip", ""), actions["mtkclient"])]
+    android = [(text("crashReboot", "Crash/Reboot"), text("crashRebootInfo", ""), actions["reboot"])]
     adb = [
         (text("fbp", "Set Fake Battery %"), text("fbpInfo", ""), actions["set_fake_battery"]),
         (text("rbp", "Reset Fake Battery %"), text("rbpInfo", ""), actions["reset_fake_battery"]),
