@@ -53,6 +53,23 @@ def test_merge_does_not_mutate_defaults():
     assert DEFAULTS["dark_theme"] is True
 
 
+def test_build_tab_specs_keeps_brand_order_and_callbacks():
+    names = {
+        "frp_unlock_android15_16", "frp_unlock_2024", "frp_unlock_2022",
+        "frp_unlock_pre_2022", "verinfo", "reboot_sam", "reboot_download_sam",
+        "wifitest", "imeicheck", "bloat_remove", "lg_screen_unlock",
+        "moto_fastboot_frp", "mtkclient", "reboot", "set_fake_battery",
+        "reset_fake_battery", "feature_request", "bug_report",
+    }
+    callbacks = {name: object() for name in names}
+
+    tabs = core.build_tab_specs({}, callbacks)
+
+    assert [title for title, _ in tabs] == ["Samsung", "LG", "Motorola", "MediaTek", "Android", "ADB", "Feedback"]
+    assert tabs[0][1][0][2] is callbacks["frp_unlock_android15_16"]
+    assert len(tabs[-1][1]) == 2
+
+
 def test_load_settings_reads_json_object(tmp_path):
     path = tmp_path / "settings.json"
     path.write_text('{"dark_theme": false}', encoding="utf-8")

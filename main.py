@@ -3057,49 +3057,27 @@ class MainWindow(QtWidgets.QMainWindow):
         return w
 
     def _build_brand_tabs(self):
-        # actions must call your existing backend functions
-        samsung_actions = [
-            ("FRP Unlock Android 15/16 🔓", "", frp_unlock_android15_16),
-            (strings.get('frpUnlock2024','FRP Unlock 2024 🔓'), strings.get('frpUnlock2024info',''), frp_unlock_2024),
-            (strings.get('frpUnlock2022','FRP Unlock 2022 ⛓️'), strings.get('frpUnlock2022info',''), frp_unlock_aug2022_to_dec2022),
-            (strings.get('frpUnlockPre2022','FRP Unlock pre-2022 🔓'), strings.get('frpUnlockPre2022info',''), frp_unlock_pre_aug2022),
-            (strings.get('getVerInfo','Get Version Info 🧾'), strings.get('getVerInfoTooltip',''), verinfo),
-            (strings.get('crashReboot','Crash/Reboot ⚡'), strings.get('crashRebootInfo',''), reboot_sam),
-            (strings.get('samRebootDownloadMode','Reboot to Download ⬇️'), strings.get('samRebootDownloadModeInfo',''), reboot_download_sam),
-            (strings.get('samWifitest','WIFITEST 🔧'), strings.get('samWifitestInfo',''), wifitest),
-            (strings.get('samImeiCheck','IMEI Check 🔍'), strings.get('samImeiCheckInfo',''), imeicheck),
-            (strings.get('samRemoveBloat','Remove Bloat 🧹'), strings.get('samRemoveBloatInfo',''), bloatRemove),
-        ]
-        lg_actions = [
-            (strings.get('lgScreenUnlockLabel','LG Screen Unlock 🔓'), strings.get('lgScreenUnlockTooltip',''), LG_screen_unlock),
-        ]
-        moto_actions = [
-            (strings.get('motoFastbootUnlockFRP1','Fastboot-Based FRP Unlock'), strings.get('fbbFRPu1tooltip',''), MotoFastbootFRP1),
-        ]
-        mtk_actions = [
-            (strings.get('mtkClientLabel','MTK Client GUI 🚀'), strings.get('mtkClientTooltip',''), mtkclient),
-        ]
-        android_actions = [
-            (strings.get('crashReboot','Crash/Reboot ⚡'), strings.get('crashRebootInfo',''), reboot),
-        ]
-        adb_actions = [
-            (strings.get('fbp','Set Fake Battery %'), strings.get('fbpInfo',''), setFakeBatteryPercent),
-            (strings.get('rbp','Reset Fake Battery %'), strings.get('rbpInfo',''), resetBatteryPercent),
-        ]
-        feedback_actions = [
-            (strings.get('featureRequest','Feature Request'), strings.get('featureRequestInfo',''), featureRequest),
-            (strings.get('bugReport','Bug Report'), strings.get('bugReportInfo',''), bugReport),
-        ]
-
-        tabspec = [
-            (strings.get('brandSamsung','Samsung'), samsung_actions),
-            (strings.get('brandLg','LG'), lg_actions),
-            (strings.get('brandMoto','Motorola'), moto_actions),
-            (strings.get('brandMediatek','MediaTek'), mtk_actions),
-            (strings.get('brandAndroid','Android'), android_actions),
-            (strings.get('ADB', 'ADB'), adb_actions),
-            (strings.get('feedback', 'Feedback'), feedback_actions),
-        ]
+        action_handlers = {
+            "frp_unlock_android15_16": frp_unlock_android15_16,
+            "frp_unlock_2024": frp_unlock_2024,
+            "frp_unlock_2022": frp_unlock_aug2022_to_dec2022,
+            "frp_unlock_pre_2022": frp_unlock_pre_aug2022,
+            "verinfo": verinfo,
+            "reboot_sam": reboot_sam,
+            "reboot_download_sam": reboot_download_sam,
+            "wifitest": wifitest,
+            "imeicheck": imeicheck,
+            "bloat_remove": bloatRemove,
+            "lg_screen_unlock": LG_screen_unlock,
+            "moto_fastboot_frp": MotoFastbootFRP1,
+            "mtkclient": mtkclient,
+            "reboot": reboot,
+            "set_fake_battery": setFakeBatteryPercent,
+            "reset_fake_battery": resetBatteryPercent,
+            "feature_request": featureRequest,
+            "bug_report": bugReport,
+        }
+        tabspec = nphonekit_core.build_tab_specs(strings, action_handlers)
         self.tabs.clear()
         self._brand_index.clear()
         for i, (title, acts) in enumerate(tabspec):
