@@ -23,7 +23,6 @@ from pathlib import Path # Importing settings
 import sys # Getting basic system info
 import re # Finding strings within text
 import platform # Checking the current OS
-import asyncio # Running different actions asynchronously
 import threading # Using multiple threads
 import json # Parsing and creating JSON
 import webbrowser # Opening browser to any page
@@ -45,6 +44,7 @@ from nphonekit_services import (
     public_hardware_uuid,
 )
 from nphonekit_maintenance import get_os_info, self_fix_serial
+from nphonekit_runtime import initialize_runtime
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1999,10 +1999,6 @@ def set_preload_error(value):
     global preload_error
     preload_error = value
 
-def preload_thread():
-    asyncio.run(preloader.run())
-
-
 def run_app():
     """Perform runtime setup and start the GUI.
 
@@ -2027,28 +2023,28 @@ def run_app():
     if update_check:
         check_for_update()
 
-    ADB.configure(os_config, strings, rt)
-
-    if os_config == "WINDOWS":
-        serman = SerialManagerWindows(strings, debug_info)
-    else:
-        serman = SerialManager(strings, debug_info)
-    serman1 = SerialManager(strings, debug_info)
-    AT.configure(serman, lambda: enable_preload, preload_done, rt, strings)
-    samsung_modem_unlocker = SamsungModemUnlocker(
-        AT, os_config, lambda: enable_preload, lambda: preload_error
+    runtime = initialize_runtime(
+        os_config=os_config,
+        strings=strings,
+        debug_info=debug_info,
+        adb=ADB,
+        at=AT,
+        rt=rt,
+        serial_manager=SerialManager,
+        serial_manager_windows=SerialManagerWindows,
+        modem_unlocker=SamsungModemUnlocker,
+        preloader_factory=SamsungPreloader,
+        enable_preload=lambda: enable_preload,
+        preload_error=lambda: preload_error,
+        preload_done=preload_done,
+        disable_preload=disable_preload,
+        set_preload_error=set_preload_error,
+        set_brand=set_brand,
     )
-    preloader = SamsungPreloader(
-        serman1,
-        strings,
-        debug_info,
-        lambda: enable_preload,
-        disable_preload,
-        set_preload_error,
-        preload_done,
-        set_brand,
-    )
-    threading.Thread(target=preload_thread, daemon=True).start()
+    serman = runtime.serman
+    serman1 = runtime.serman1
+    preloader = runtime.preloader
+    samsung_modem_unlocker = runtime.samsung_modem_unlocker
 
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))
     ttthread.start() # Sends basic, anonymized success_checks info with only the model number.

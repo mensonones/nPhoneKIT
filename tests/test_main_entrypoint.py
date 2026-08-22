@@ -6,11 +6,10 @@ from pathlib import Path
 
 MAIN_PATH = Path(__file__).parents[1] / "main.py"
 RUNTIME_CALLS = {
-    "SerialManager",
-    "SerialManagerWindows",
     "check_for_update",
     "check_serial_permissions",
     "Thread",
+    "initialize_runtime",
 }
 
 
