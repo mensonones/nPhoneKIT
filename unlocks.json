@@ -2,11 +2,11 @@
   {
     "id": "sam_15_16",
     "title": "Android 15/16 Samsung FRP Unlock",
-    "desc": "Uses bleeding-edge AT modem commands in order to attempt to unlock the device and remove FRP.",
+    "desc": "Experimental, unvalidated flow for authorised testing on selected Android 15/16 Samsung builds.",
     "pros": [
-      "Works on most Samsung devices on Android 15/16",
+      "Provides a separately identified experimental path",
       "Will not cause harm upon failure",
-      "Most other tools do not have this unlock as of early Jan. 2026"
+      "Failure is reported without claiming compatibility"
     ],
     "cons": [
       "Needs a slightly more powerful PC",
@@ -20,7 +20,7 @@
     "title": "2024 FRP Unlock",
     "desc": "Attempts to use AT in order to overload and trick the system into enabling ADB, and then using that to unlock the device.",
     "pros": [
-      "Works on most devices still on the 2024 patch",
+      "Candidate path for selected 2024 builds",
       "Similar functionality to older methods"
     ],
     "cons": [
@@ -34,7 +34,7 @@
     "title": "2022-2023 FRP Unlock",
     "desc": "Attempts to use AT in order to overload and trick the system into enabling ADB, and then using that to unlock the device.",
     "pros": [
-      "Works on most devices still 2022-2023 patch",
+      "Candidate path for selected Aug-Dec 2022 builds",
       "Similar functionality to older methods"
     ],
     "cons": [
@@ -47,7 +47,7 @@
     "title": "Pre-2022 FRP Unlock",
     "desc": "Attempts to use AT in order to easily enable ADB, and then using that to unlock the device.",
     "pros": [
-      "Works on most devices still pre-2022 patch",
+      "Candidate path for selected pre-Aug 2022 builds",
       "The OG unlock method used by tons of tools"
     ],
     "cons": [
