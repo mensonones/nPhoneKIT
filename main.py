@@ -42,7 +42,6 @@ from nphonekit_ui import (
     QtDialogHelper,
 )
 from datetime import datetime, timedelta
-import shutil # Fastboot partition eraser for Motorola
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
@@ -259,6 +258,7 @@ except ModuleNotFoundError:
 from nphonekit_devices import (  # noqa: E402
     ADB,
     AT,
+    FastbootPartitionEraser,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1030,83 +1030,6 @@ def stw(
             pass
 
     return bool(result["value"])
-
-class FastbootPartitionEraser:
-    """
-    This class attempts to erase FRP partition(s) on Motorola devices.
-    """
-
-    def __init__(self, fastboot_path='fastboot'):
-        # Ensure the fastboot executable is available
-        if not shutil.which(fastboot_path):
-            raise FileNotFoundError(f"Fastboot binary '{fastboot_path}' not found in PATH.")
-        self.fastboot = fastboot_path
-
-    def _run(self, args):
-        """
-        Internal helper to run a fastboot command.
-        Raises RuntimeError if command fails.
-        """
-        cmd = [self.fastboot] + args
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"Command {' '.join(cmd)} failed: {result.stderr.strip()}")
-        return result.stdout.strip()
-
-    def erase_config(self, device_id=None):
-        """
-        Erase the 'config' partition.
-        Optionally specify a device serial with device_id.
-        """
-        args = []
-        if device_id:
-            args += ['-s', device_id]
-        args += ['erase', 'config']
-        return self._run(args)
-
-    def erase_persist(self, device_id=None):
-        """
-        Erase the 'persist' partition.
-        Optionally specify a device serial with device_id.
-        """
-        args = []
-        if device_id:
-            args += ['-s', device_id]
-        args += ['erase', 'persist']
-        return self._run(args)
-
-    def erase_frp(self, device_id=None):
-        """
-        Erase the 'frp' partition.
-        Optionally specify a device serial with device_id.
-        """
-        args = []
-        if device_id:
-            args += ['-s', device_id]
-        args += ['erase', 'frp']
-        return self._run(args)
-
-    def wipe_data_cache(self, device_id=None):
-        """
-        Wipe data and cache partitions via 'fastboot -w'.
-        Optionally specify a device serial with device_id.
-        """
-        args = []
-        if device_id:
-            args += ['-s', device_id]
-        args += ['-w']
-        return self._run(args)
-
-    def list_devices(self):
-        """Return the serials fastboot currently sees (may be empty)."""
-        try:
-            out = subprocess.run(
-                [self.fastboot, "devices"],
-                capture_output=True, text=True, timeout=10,
-            ).stdout
-        except Exception:
-            return []
-        return nphonekit_core.parse_fastboot_devices(out)
 
 def pullerrors():
     if UiMainWindow.instance is None:
