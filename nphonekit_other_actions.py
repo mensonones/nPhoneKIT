@@ -100,3 +100,31 @@ def run_lg_screen_unlock(
     output(strings["lgScreenUnlockSuccess"])
     success_checks(hardware_uuid(), model, "LG_Screen_Unlock", "Success")
     return True
+
+
+def submit_feedback(kind, input_func, client, hardware_uuid, version, output=print):
+    """Collect and submit a feature request or bug report."""
+    labels = {
+        "feature": ("Feature Request:", "feature request", "feature_request"),
+        "bug": ("Bug Report:", "bug report", "bug_report"),
+    }
+    label, description, method_name = labels[kind]
+    value = input_func(
+        title="nPhoneKIT",
+        text=label,
+        placeholder="detailed feature description...",
+        ok_text="Submit",
+        cancel_text="Cancel",
+    )
+    if value is not None:
+        output("Submitting request: ", value)
+    else:
+        output("Canceled.")
+    submitted = getattr(client, method_name)(value, hardware_uuid(), version)
+    status = (
+        f"{description.capitalize()} submitted successfully!  OK"
+        if submitted
+        else f"Error: {description} failed to send. Check your connection?  FAIL"
+    )
+    output(status)
+    return submitted

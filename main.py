@@ -59,6 +59,7 @@ from nphonekit_other_actions import (
     run_lg_screen_unlock,
     run_mtkclient,
     run_moto_fastboot_frp,
+    submit_feedback,
 )
 from typing import Tuple
 
@@ -1352,52 +1353,16 @@ def tkinput(title="Enter Value", text="Please enter a value:", placeholder="", o
     return result["value"]
 
 def featureRequest():
-    featureDesc = tkinput(
-        title="nPhoneKIT",
-        text="Feature Request:",
-        placeholder="detailed feature description...",
-        ok_text="Submit",
-        cancel_text="Cancel"
+    submit_feedback(
+        "feature", tkinput, FeedbackClient(FIREBASE_URL),
+        get_public_hardware_uuid, VERSION,
     )
-
-    if featureDesc is not None:
-        print("Submitting request: ", featureDesc)
-    else:
-        print("Canceled.")
-
-    submitted = FeedbackClient(FIREBASE_URL).feature_request(
-        featureDesc, get_public_hardware_uuid(), VERSION
-    )
-    status = (
-        "Feature request submitted successfully!  OK"
-        if submitted else
-        "Error: Feature request failed to send. Check your connection?  FAIL"
-    )
-    print(status)
 
 def bugReport():
-    bugDesc = tkinput(
-        title="nPhoneKIT",
-        text="Bug Report:",
-        placeholder="detailed bug description...",
-        ok_text="Submit",
-        cancel_text="Cancel"
+    submit_feedback(
+        "bug", tkinput, FeedbackClient(FIREBASE_URL),
+        get_public_hardware_uuid, VERSION,
     )
-
-    if bugDesc is not None:
-        print("Submitting request: ", bugDesc)
-    else:
-        print("Canceled.")
-
-    submitted = FeedbackClient(FIREBASE_URL).bug_report(
-        bugDesc, get_public_hardware_uuid(), VERSION
-    )
-    status = (
-        "Bug report submitted successfully!  OK"
-        if submitted else
-        "Error: Bug report failed to send. Check your connection?  FAIL"
-    )
-    print(status)
 
 def setFakeBatteryPercent():
     percent = tkinput(

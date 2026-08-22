@@ -1,4 +1,4 @@
-from nphonekit_other_actions import macos_libusb_present, run_lg_screen_unlock, run_mtkclient, run_moto_fastboot_frp
+from nphonekit_other_actions import macos_libusb_present, run_lg_screen_unlock, run_mtkclient, run_moto_fastboot_frp, submit_feedback
 
 
 def test_macos_libusb_present_uses_known_library():
@@ -71,3 +71,15 @@ def test_run_lg_screen_unlock_reports_device_error():
 
     assert not ok
     assert reports[0][2:] == ("LG_Screen_Unlock", "Fail")
+
+
+def test_submit_feedback_routes_feature_request():
+    calls = []
+
+    class Client:
+        def feature_request(self, *args):
+            calls.append(args)
+            return True
+
+    assert submit_feedback("feature", lambda **kwargs: "idea", Client(), lambda: "uuid", "1.0", output=lambda *args: None)
+    assert calls == [("idea", "uuid", "1.0")]
