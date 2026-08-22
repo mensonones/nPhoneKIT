@@ -26,7 +26,6 @@ import subprocess # Opening new processes
 import platform # Checking the current OS
 import asyncio # Running different actions asynchronously
 import threading # Using multiple threads
-import urllib.request # Requesting different servers
 import json # Parsing and creating JSON
 import requests # Requesting different servers
 import uuid # Parsing and creating UUIDs
@@ -44,7 +43,7 @@ from nphonekit_ui import (
 from datetime import datetime, timedelta
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
-from nphonekit_services import FeedbackClient
+from nphonekit_services import FeedbackClient, UpdateClient
 import traceback # Error handling
 from typing import Tuple
 
@@ -1050,38 +1049,30 @@ def pullerrors():
 
 def check_for_update():
     try:
-        repo = "nlckysolutions/nPhoneKIT"
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        latest_version_raw, latest_version = UpdateClient().latest()
 
-        with urllib.request.urlopen(url, timeout=4) as response:
-            data = json.loads(response.read().decode())
+        # If the tag is different then the current version, assume it's newer, and prompt update.
 
-            latest_version_raw = data['tag_name']
-            latest_version = data['tag_name'].lstrip("v")
-            latest_version = latest_version.lstrip("ⅴ")
+        # Based on the unicode "v", depending on whether it's normal or U+2174, prompt for normal update and FORCE for critical update
 
-            # If the tag is different then the current version, assume it's newer, and prompt update.
+        # *************************************************************************
+        # It's not reccomended to change this in order to bypass a critical update.
+        # *************************************************************************
 
-            # Based on the unicode "v", depending on whether it's normal or U+2174, prompt for normal update and FORCE for critical update
-
-            # *************************************************************************
-            # It's not reccomended to change this in order to bypass a critical update.
-            # *************************************************************************
-
-            if latest_version != VERSION:
-                # Note: the upstream project could force-quit the app here for a
-                # "critical" update (the U+2174 trick). That remote lockout has
-                # been removed so an update notice can never block local use.
-                if "ⅴ" in latest_version_raw:
-                    messagebox.showinfo(
-                        strings['updateReqd'],
-                        strings['updateReqdString'].format(version=VERSION, latest_version=latest_version)
-                    )
-                else:
-                    messagebox.showinfo(
-                        strings['updateAvail'],
-                        strings['updateAvailString'].format(version=VERSION, latest_version=latest_version)
-                    )
+        if latest_version != VERSION:
+            # Note: the upstream project could force-quit the app here for a
+            # "critical" update (the U+2174 trick). That remote lockout has
+            # been removed so an update notice can never block local use.
+            if "ⅴ" in latest_version_raw:
+                messagebox.showinfo(
+                    strings['updateReqd'],
+                    strings['updateReqdString'].format(version=VERSION, latest_version=latest_version)
+                )
+            else:
+                messagebox.showinfo(
+                    strings['updateAvail'],
+                    strings['updateAvailString'].format(version=VERSION, latest_version=latest_version)
+                )
     except Exception:
         print(strings['updateCheckFailed'])
 
