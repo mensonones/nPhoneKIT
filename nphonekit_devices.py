@@ -414,3 +414,47 @@ class SamsungPreloader:
             self.set_error(True)
         finally:
             self.done.set()
+
+
+class FastbootPartitionEraser:
+    """Run explicitly targeted Fastboot erase operations."""
+
+    def __init__(self, fastboot_path="fastboot"):
+        if not shutil.which(fastboot_path):
+            raise FileNotFoundError(f"Fastboot binary '{fastboot_path}' not found in PATH.")
+        self.fastboot = fastboot_path
+
+    def _run(self, args):
+        command = [self.fastboot] + args
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"Command {' '.join(command)} failed: {result.stderr.strip()}")
+        return result.stdout.strip()
+
+    @staticmethod
+    def _target_args(device_id):
+        return ["-s", device_id] if device_id else []
+
+    def erase_config(self, device_id=None):
+        return self._run(self._target_args(device_id) + ["erase", "config"])
+
+    def erase_persist(self, device_id=None):
+        return self._run(self._target_args(device_id) + ["erase", "persist"])
+
+    def erase_frp(self, device_id=None):
+        return self._run(self._target_args(device_id) + ["erase", "frp"])
+
+    def wipe_data_cache(self, device_id=None):
+        return self._run(self._target_args(device_id) + ["-w"])
+
+    def list_devices(self):
+        try:
+            output = subprocess.run(
+                [self.fastboot, "devices"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stdout
+        except Exception:
+            return []
+        return nphonekit_core.parse_fastboot_devices(output)

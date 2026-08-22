@@ -184,3 +184,34 @@ def test_samsung_preloader_disables_when_usb_is_absent():
 
     assert state == {"enabled": False, "error": True}
     assert done.is_set()
+
+
+def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
+    monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
+    eraser = devices.FastbootPartitionEraser()
+    commands = []
+    monkeypatch.setattr(eraser, "_run", lambda args: commands.append(args) or "")
+
+    eraser.erase_config("ABC")
+    eraser.erase_persist("ABC")
+    eraser.erase_frp("ABC")
+    eraser.wipe_data_cache("ABC")
+
+    assert commands == [
+        ["-s", "ABC", "erase", "config"],
+        ["-s", "ABC", "erase", "persist"],
+        ["-s", "ABC", "erase", "frp"],
+        ["-s", "ABC", "-w"],
+    ]
+
+
+def test_fastboot_eraser_lists_devices_with_core_parser(monkeypatch):
+    monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
+    eraser = devices.FastbootPartitionEraser()
+    monkeypatch.setattr(
+        devices.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout="ABC\tfastboot\n"),
+    )
+
+    assert eraser.list_devices() == ["ABC"]
