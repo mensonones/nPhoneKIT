@@ -114,13 +114,6 @@ if SETTINGS_PATH.exists(): # If settings exist, load them, otherwise use default
 else:
     settings = default_settings.copy()
 
-# Persist the (possibly newly-merged) settings so the file stays in sync with the schema.
-try:
-    with open(SETTINGS_PATH, "w") as f:
-        json.dump(settings, f, indent=2)
-except OSError as e:
-    print(f"[nPhoneKIT] Could not write settings: {e}")
-
 dark_theme = settings['dark_theme']
 hacker_font = settings['hacker_font']
 slower_animations = settings['slower_animations']
@@ -150,6 +143,15 @@ def load_settings():
 def save_settings(new_settings):
     with open(SETTINGS_PATH, "w") as f:
         json.dump(new_settings, f, indent=2)
+
+
+def persist_settings():
+    """Persist the merged settings during application startup, not import."""
+    try:
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=2)
+    except OSError as e:
+        print(f"[nPhoneKIT] Could not write settings: {e}")
 
 if platform.system() == "Windows":
     os_config = "WINDOWS"
@@ -3530,11 +3532,14 @@ def preload_thread():
 def run_app():
     """Perform runtime setup and start the GUI.
 
-    Importing this module defines the application API only. Permission checks,
-    serial connections, update checks, and background threads belong to the
-    executable entrypoint and therefore happen only when the app is launched.
+    Importing this module defines the application API only. Settings
+    persistence, permission checks, serial connections, update checks, and
+    background threads belong to the executable entrypoint and therefore
+    happen only when the app is launched.
     """
     global serman, serman1
+
+    persist_settings()
 
     if os_config == "LINUX":
         if not check_serial_permissions():
