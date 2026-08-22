@@ -261,6 +261,7 @@ from nphonekit_devices import (  # noqa: E402
     readOutput,
     rt,
     SamsungBloatwareRemover,
+    SamsungRebootClient,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1803,19 +1804,15 @@ def reboot(): # Crash an android phone to reboot
     MTPmenu()
     info = verinfo(False)
     model = re.search(r'Model:\s*(\S+)', info)
-    rt()
-    try:
-        AT.send("AT+CFUN=1,1") # Crashes the phone immediately.
-    except Exception as e:
-        if "disconnected" in str(e):
-            print(strings['okText']) # Error opening serial means that the command worked, because it reset the phone before it could give a response.
-            tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT", "Success"))
-            tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-    output = readOutput("AT")
-    if "OK" in output:
+    result = SamsungRebootClient(AT, rt, readOutput).crash_reboot()
+    if result is False:
         print(strings['failText'])
         print(strings['crashRebootFailed'])
         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT", "Fail"))
+        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+    elif result is True:
+        print(strings['okText'])
+        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT", "Success"))
         tthread.start() # Sends basic, anonymized success_checks info with only the model number.
 
 def reboot_sam(): # Crash a Samsung phone to reboot
@@ -1824,19 +1821,15 @@ def reboot_sam(): # Crash a Samsung phone to reboot
     modemUnlock("SAMSUNG", True)
     info = verinfo(False)
     model = re.search(r'Model:\s*(\S+)', info)
-    rt()
-    try:
-        AT.send("AT+CFUN=1,1") # Crashes the phone immediately.
-    except Exception as e:
-        if "disconnected" in str(e):
-            print(strings['okText']) # Error opening serial means that the command worked, because it reset the phone before it could give a response.
-            tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_SAM", "Success"))
-            tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-    output = readOutput("AT")
-    if "OK" in output:
+    result = SamsungRebootClient(AT, rt, readOutput).crash_reboot()
+    if result is False:
         print(strings['failText'])
         print(strings['crashRebootFailed'])
         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_SAM", "Fail"))
+        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+    elif result is True:
+        print(strings['okText'])
+        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_SAM", "Success"))
         tthread.start() # Sends basic, anonymized success_checks info with only the model number.
 
 def bloatRemove():
