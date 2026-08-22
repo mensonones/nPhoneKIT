@@ -256,7 +256,14 @@ except ModuleNotFoundError:
     if x == "y" or x == "Y":
         self_fix_serial()
 
-from nphonekit_devices import ADB, AT, SerialManager, SerialManagerWindows  # noqa: E402
+from nphonekit_devices import (  # noqa: E402
+    ADB,
+    AT,
+    SerialManager,
+    SerialManagerWindows,
+    check_serial_permissions,
+    is_root,
+)  # noqa: E402
 
 MAIN_SCRIPT = os.path.abspath(__file__)
 
@@ -280,91 +287,23 @@ def privacyupdate():
 
 # --- PRIVACY_UPDATER_END ---
 
-# The active serial manager is created by run_app(), not while importing this
-# module.  Keeping the reference here preserves the existing AT API without
-# opening a device during imports or tests.
-serman = None
 
-
-def check_serial_permissions():
-    if os_config in ("LINUX", "MACOS"):
-        import grp
-        import getpass
-        import platform
-
-        user = getpass.getuser()
-
-        # Serial device groups used across most distros
-        serial_groups = ["dialout", "uucp", "lock", "tty"]
-
-        # Gather the groups this user belongs to. Previously `user_groups` was
-        # never defined, so this check raised NameError at startup on Linux.
-        try:
-            user_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
-        except Exception:
-            user_groups = []
-
-        # Also check primary group ID (some distros put uucp as primary)
-        try:
-            primary_group = grp.getgrgid(os.getgid()).gr_name
-            user_groups.append(primary_group)
-        except Exception:
-            pass
-
-        # Check if user is good
-        if nphonekit_core.has_required_group(user_groups, serial_groups):
-            return True  # Permissions OK
-
-        # If we reach here, user is missing required groups
-        # Decide which command to show based on distro
-        distro = platform.system()
-
-        if distro == "Linux":
-            # Try reading OS-release for better accuracy
-            import distro as distro_lib
-            name = distro_lib.id()
-
-            if name in ["ubuntu", "debian", "linuxmint", "zorin"]:
-                cmd = f"sudo usermod -aG dialout {user}"
-            elif name in ["arch", "endeavouros", "cachyos", "manjaro", "garuda"]:
-                cmd = f"sudo usermod -aG uucp,lock {user}"
-            elif name in ["fedora", "rhel", "centos"]:
-                cmd = f"sudo usermod -aG dialout {user}"
-            else:
-                # Fallback universal command
-                cmd = f"sudo usermod -aG dialout,uucp,lock {user}"
-        elif distro == "Darwin":
-            # macOS handles serial permissions through system privacy settings
-            return True
-        else:
-            cmd = "Unsupported OS for serial permissions."
-
-        # Show Tkinter window with copy-paste command
-        root = tk.Tk()
-        root.title("Serial Permission Fix Required")
-        root.geometry("500x250")
-
-        label = tk.Label(root, text="To enable serial access, run this command in your terminal:", font=("Arial", 12))
-        label.pack(pady=10)
-
-        text_box = tk.Text(root, height=2, font=("Courier", 12))
-        text_box.pack(padx=20, pady=10, fill="both")
-        text_box.insert("1.0", cmd)
-
-        # Make text read-only
-        text_box.config(state="disabled")
-
-        reboot_label = tk.Label(root, text="After running the command, reboot your system.", font=("Arial", 10))
-        reboot_label.pack(pady=10)
-
-        ok_button = tk.Button(root, text="OK", command=root.destroy)
-        ok_button.pack(pady=10)
-
-        root.mainloop()
-
-        return False
-    else:
-        return True
+def show_serial_permission_fix(command):
+    """Present the platform-specific serial permission command to the user."""
+    root = tk.Tk()
+    root.title("Serial Permission Fix Required")
+    root.geometry("500x250")
+    label = tk.Label(root, text="To enable serial access, run this command in your terminal:", font=("Arial", 12))
+    label.pack(pady=10)
+    text_box = tk.Text(root, height=2, font=("Courier", 12))
+    text_box.pack(padx=20, pady=10, fill="both")
+    text_box.insert("1.0", command)
+    text_box.config(state="disabled")
+    reboot_label = tk.Label(root, text="After running the command, reboot your system.", font=("Arial", 10))
+    reboot_label.pack(pady=10)
+    ok_button = tk.Button(root, text="OK", command=root.destroy)
+    ok_button.pack(pady=10)
+    root.mainloop()
 
 async def preload_samsung_modem(serman2):
     global enable_preload
@@ -2634,16 +2573,6 @@ def main():
 #  Preparing to start the app
 # ===================================
 
-def is_root():
-    if os_config == "WINDOWS":  # Windows
-        try:
-            import ctypes
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            return False
-    elif os_config in ("LINUX", "MACOS"):  # POSIX (Linux, macOS, etc)
-        return os.geteuid() == 0
-
 serman1 = None
 
 def preload_thread():
@@ -2663,9 +2592,9 @@ def run_app():
     persist_settings()
 
     if os_config == "LINUX":
-        if not check_serial_permissions():
+        if not check_serial_permissions(os_config, show_serial_permission_fix):
             return
-    elif os_config == "WINDOWS" and not is_root() and not DEBUGMODE:
+    elif os_config == "WINDOWS" and not is_root(os_config) and not DEBUGMODE:
         root = tk.Tk()
         root.withdraw()
         messagebox.showwarning("nPhoneKIT", strings['sudoReqdError'])
