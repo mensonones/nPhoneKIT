@@ -164,6 +164,29 @@ def describe_selection_reason(reason: Optional[str]) -> str:
     return _REASON_MESSAGES.get(reason, "Device not available.")
 
 
+def select_serial_port(ports) -> tuple[Optional[str], Optional[str]]:
+    """Pick the serial port to use and, when ambiguous, return an info note.
+
+    Returns ``(port, note)``. This deliberately does NOT refuse when several
+    ports are present: a single phone commonly exposes multiple serial
+    interfaces (e.g. ttyACM0/ttyACM1), so port count is not device count and
+    refusing would break the normal single-device case. The historical
+    "first candidate" choice is preserved; ``note`` is a heads-up (or None).
+    """
+    ports = list(ports or [])
+    if not ports:
+        return None, None
+    chosen = ports[0]
+    if len(ports) == 1:
+        return chosen, None
+    note = (
+        f"Multiple serial ports detected ({', '.join(ports)}); using {chosen}. "
+        "A single phone can expose several interfaces, so this is normal — but "
+        "if a second device is connected, disconnect it to be sure."
+    )
+    return chosen, note
+
+
 def usable_devices(pairs: list[tuple[str, str]]) -> list[str]:
     """Return serials of devices in the ready ``device`` state."""
     return [serial for serial, state in pairs if state == "device"]

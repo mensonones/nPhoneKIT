@@ -270,3 +270,30 @@ def test_describe_reason_unknown_has_fallback():
 
 def test_describe_reason_none_has_fallback():
     assert core.describe_selection_reason(None) == "Device not available."
+
+
+# ---------------------------------------------------------------------------
+# select_serial_port  (transparency, never refuses)
+# ---------------------------------------------------------------------------
+
+def test_select_serial_port_none():
+    assert core.select_serial_port([]) == (None, None)
+    assert core.select_serial_port(None) == (None, None)
+
+
+def test_select_serial_port_single_no_note():
+    port, note = core.select_serial_port(["/dev/ttyACM0"])
+    assert port == "/dev/ttyACM0"
+    assert note is None
+
+
+def test_select_serial_port_multiple_keeps_first_and_notes():
+    ports = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB0"]
+    port, note = core.select_serial_port(ports)
+    # Historical behavior preserved: first candidate is chosen, never refused.
+    assert port == "/dev/ttyACM0"
+    assert note is not None
+    # Note is informative: mentions the chosen port and lists the others.
+    assert "/dev/ttyACM0" in note
+    assert "/dev/ttyACM1" in note
+    assert "/dev/ttyUSB0" in note
