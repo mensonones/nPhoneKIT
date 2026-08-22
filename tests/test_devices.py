@@ -341,6 +341,50 @@ def test_samsung_download_mode_client_can_skip_optional_modem_unlock():
     assert events == ["AT+FUS?"]
 
 
+def test_samsung_device_info_client_retries_and_resets_serial_on_third_attempt():
+    events = []
+    outputs = iter(["", "", "+DEVCONINFO:MN(SM-A556E)"])
+
+    class FakeAT:
+        def send(self, command, reset=False):
+            events.append((command, reset))
+
+    client = devices.SamsungDeviceInfoClient(
+        FakeAT(), lambda source: next(outputs), lambda: None
+    )
+
+    assert client.fetch(preload_enabled=True) == "+DEVCONINFO:MN(SM-A556E)"
+    assert events == [
+        ("AT+DEVCONINFO", False),
+        ("AT+DEVCONINFO", False),
+        ("AT+DEVCONINFO", True),
+    ]
+
+
+def test_samsung_device_info_client_unlocks_and_clears_without_preload():
+    events = []
+
+    class FakeAT:
+        def send(self, command, reset=False):
+            events.append(("at", command, reset))
+
+    class FakeModemUnlocker:
+        def unlock(self, manufacturer):
+            events.append(("unlock", manufacturer))
+
+    client = devices.SamsungDeviceInfoClient(
+        FakeAT(), lambda source: "info", lambda: events.append(("clear",)),
+        FakeModemUnlocker()
+    )
+
+    assert client.fetch(preload_enabled=False) == "info"
+    assert events == [
+        ("unlock", "SAMSUNG"),
+        ("clear",),
+        ("at", "AT+DEVCONINFO", False),
+    ]
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()

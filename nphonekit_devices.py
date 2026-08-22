@@ -558,6 +558,30 @@ class SamsungDownloadModeClient:
             self.modem_unlocker.unlock("SAMSUNG")
 
 
+class SamsungDeviceInfoClient:
+    """Fetch raw Samsung ``AT+DEVCONINFO`` data with connection retries."""
+
+    def __init__(self, at_client, read_output, clear_output, modem_unlocker=None):
+        self.at_client = at_client
+        self.read_output = read_output
+        self.clear_output = clear_output
+        self.modem_unlocker = modem_unlocker
+
+    def fetch(self, preload_enabled, gui=False):
+        if not preload_enabled:
+            if self.modem_unlocker is not None:
+                self.modem_unlocker.unlock("SAMSUNG")
+            self.clear_output()
+        attempts = 2 if gui and preload_enabled else 3
+        output = ""
+        for attempt in range(attempts):
+            self.at_client.send("AT+DEVCONINFO", attempt == 2)
+            output = self.read_output("AT")
+            if output:
+                break
+        return output
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 

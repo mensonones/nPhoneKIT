@@ -262,6 +262,7 @@ from nphonekit_devices import (  # noqa: E402
     rt,
     SamsungBloatwareRemover,
     SamsungDownloadModeClient,
+    SamsungDeviceInfoClient,
     SamsungRebootClient,
     SerialManager,
     SerialManagerWindows,
@@ -1679,87 +1680,35 @@ def MotoFastbootFRP1():
 # ==============================================
 
 def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty simple. (not simple, this has taken me hours.)
+    info_client = SamsungDeviceInfoClient(AT, readOutput, rt, samsung_modem_unlocker)
     if gui:
-        if enable_preload: # Skip all the nonsense and cut straight to the action, no "testAT" nonsense. We're prioritizing speed.
-            print(strings['getVerInfo'], end="")
-            AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-            output = readOutput("AT") # Output is retrieved from the command
-            if output == "" or output is None:
-                AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-                output = readOutput("AT")
-                if output == "" or output is None:
-                    print(strings['failText'])
-                    print(strings['verInfoCheckConn'])
-                    model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-                    tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Fail"))
-                    tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-            else:
-                print(strings['okText'])
-                model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-                tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Success"))
-                tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-            output = parse_devconinfo(output) # Make the output actually readable
-            print(output) # Print the version info to the output box
+        print(strings['getVerInfo'], end="")
+        output = info_client.fetch(enable_preload, gui=True)
+        if not output:
+            print(strings['failText'])
+            print(strings['verInfoCheckConn'])
+            model = re.search(r'Model:\s*(\S+)', output)
+            tthread = threading.Thread(target=success_checks, args=(
+                get_public_hardware_uuid(), model, "VersionInfo", "Fail"
+            ))
+            tthread.start()
         else:
-            print(strings['getVerInfo'], end="")
-            if 1 == 1: # We should verify AT is working before running the below code (testAT is deprecated)
-                if not enable_preload:
-                    modemUnlock("SAMSUNG") # Run the command to allow more AT access for SAMSUNG devices unless preloading is enabled
-                    rt() # Flush the command output file
-                AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-                output = readOutput("AT") # Output is retrieved from the command
-                if output == "" or output is None:
-                    AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-                    output = readOutput("AT")
-                    if output == "" or output is None:
-                        AT.send("AT+DEVCONINFO", True) # Only works when the modem is working with modemUnlock("SAMSUNG")
-                        output = readOutput("AT")
-                        try:
-                            if output == "" or output is None:
-                                print(strings['failText'])
-                                print(strings['verInfoCheckConn'])
-                            else:
-                                output = parse_devconinfo(output) # Make the output actually readable
-                                model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-                                tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Success"))
-                                tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-                                print(strings['okText'])
-                        except Exception:
-                            print(strings['verInfoCheckConn'])
-                    else:
-                        output = parse_devconinfo(output) # Make the output actually readable
-                        model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Success"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-                        print(strings['okText'])
-                        print(output) # Print the version info to the output box
-                else:
-                    output = parse_devconinfo(output) # Make the output actually readable
-                    model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-                    tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Success"))
-                    tthread.start() # Sends basic, anonymized success_checks info with only the model number.
-                    print(strings['okText'])
-                    print(output) # Print the version info to the output box
+            print(strings['okText'])
+            model = re.search(r'Model:\s*(\S+)', output)
+            tthread = threading.Thread(target=success_checks, args=(
+                get_public_hardware_uuid(), model, "VersionInfo", "Success"
+            ))
+            tthread.start()
+        output = parse_devconinfo(output)
+        print(output)
     else:
         #print(strings['getVerInfo'], end="")
         if 1 == 1: # We should verify AT is working before running the below code (deprecated)
-            if not enable_preload:
-                modemUnlock("SAMSUNG") # Run the command to allow more AT access for SAMSUNG devices unless preloading is enabled
-                rt() # Flush the command output file
-            AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-            output = readOutput("AT") # Output is retrieved from the command
-            if output == "" or output is None:
-                AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
-                output = readOutput("AT")
-                if output == "" or output is None:
-                    AT.send("AT+DEVCONINFO", True) # Third try with a serial reset, mirroring the GUI path which recovers flaky connections
-                    output = readOutput("AT")
-                if output == "" or output is None:
-                    if showtext:
-                        print(strings['failText'])
-                else:
-                    if showtext:
-                        print(strings['okText'])
+            output = info_client.fetch(enable_preload)
+            if not output and showtext:
+                print(strings['failText'])
+            elif output and showtext:
+                print(strings['okText'])
             output = parse_devconinfo(output) # Make the output actually readable (parse the output)
             model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
             if output == "" or output is None:
