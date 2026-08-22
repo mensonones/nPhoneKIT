@@ -266,6 +266,7 @@ from nphonekit_devices import (  # noqa: E402
     SamsungRebootClient,
     SamsungWifiTestClient,
     MtkClientRunner,
+    BatteryLevelClient,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1981,11 +1982,9 @@ def setFakeBatteryPercent():
         cancel_text="Cancel"
     )
     adbMenu()
-    percent = percent.replace("%", "")
     print(f"Setting percentage to {percent}%...", end="")
-    ADB.send(f"shell dumpsys battery set level {percent}")
-    output = readOutput("ADB")
-    if "unauthorized" in output:
+    output = BatteryLevelClient(ADB, readOutput).set_level(percent)
+    if BatteryLevelClient.unauthorized(output):
         print("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
     else:
         print("  OK  (Restarting your phone should undo this.)")
@@ -1993,9 +1992,8 @@ def setFakeBatteryPercent():
 def resetBatteryPercent():
     adbMenu()
     print("Resetting percentage...", end="")
-    ADB.send("shell dumpsys battery reset")
-    output = readOutput("ADB")
-    if "unauthorized" in output:
+    output = BatteryLevelClient(ADB, readOutput).reset()
+    if BatteryLevelClient.unauthorized(output):
         print("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
     else:
         print("  OK  (Restarting your phone should undo this.)")
