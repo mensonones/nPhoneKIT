@@ -261,6 +261,7 @@ from nphonekit_devices import (  # noqa: E402
     readOutput,
     rt,
     SamsungBloatwareRemover,
+    SamsungDownloadModeClient,
     SamsungRebootClient,
     SerialManager,
     SerialManagerWindows,
@@ -1860,9 +1861,8 @@ def bloatRemove():
 def reboot_download_sam(): # Reboot Samsung device to download mode
     print(strings['rebootingDownloadMode'], end="")
     MTPmenu()
-    AT.send("AT+FUS?") # Thankfully, no modem unlocking required for this command.
+    SamsungDownloadModeClient(AT, samsung_modem_unlocker).enter(basic_success_checks)
     if basic_success_checks:
-        modemUnlock("SAMSUNG")
         info = verinfo(False)
         model = re.search(r'Model:\s*(\S+)', info)
         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_DOWNLOAD_SAM", "Fail"))

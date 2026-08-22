@@ -307,6 +307,40 @@ def test_samsung_reboot_client_reports_at_ok_as_failure():
     assert client.crash_reboot() is False
 
 
+def test_samsung_download_mode_client_preserves_command_order():
+    events = []
+
+    class FakeAT:
+        def send(self, command):
+            events.append(("at", command))
+
+    class FakeModemUnlocker:
+        def unlock(self, manufacturer):
+            events.append(("modem", manufacturer))
+
+    client = devices.SamsungDownloadModeClient(FakeAT(), FakeModemUnlocker())
+
+    client.enter()
+
+    assert events == [("at", "AT+FUS?"), ("modem", "SAMSUNG")]
+
+
+def test_samsung_download_mode_client_can_skip_optional_modem_unlock():
+    events = []
+
+    class FakeAT:
+        def send(self, command):
+            events.append(command)
+
+    class FakeModemUnlocker:
+        def unlock(self, manufacturer):
+            events.append(manufacturer)
+
+    devices.SamsungDownloadModeClient(FakeAT(), FakeModemUnlocker()).enter(False)
+
+    assert events == ["AT+FUS?"]
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()

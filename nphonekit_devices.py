@@ -545,6 +545,19 @@ class SamsungRebootClient:
         return False if "OK" in self.read_output("AT") else None
 
 
+class SamsungDownloadModeClient:
+    """Run the Samsung command sequence that requests Download Mode."""
+
+    def __init__(self, at_client, modem_unlocker):
+        self.at_client = at_client
+        self.modem_unlocker = modem_unlocker
+
+    def enter(self, unlock_modem=True):
+        self.at_client.send("AT+FUS?")
+        if unlock_modem:
+            self.modem_unlocker.unlock("SAMSUNG")
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 
