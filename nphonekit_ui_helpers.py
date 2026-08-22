@@ -109,11 +109,17 @@ def material_qss(dark=True, hacker=False):
         QPushButton {{
             background: {SURFACE_2};
             border: 1px solid #2A2A2A;
-            padding: 10px 14px;
-            border-radius: 10px;
+            border-radius: 8px;
+            padding: 8px 14px;
+            min-height: 36px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif;
         }}
-        QPushButton:hover {{ background: #262626; border-color: #333; }}
-        QPushButton:pressed {{ background: {ACCENT}; color: white; }}
+        QPushButton:hover {{ background: #262626; border-color: #3A3A3A; }}
+        QPushButton:focus {{ border: 1px solid {ACCENT}; }}
+        QPushButton:pressed {{ background: {ACCENT}; color: #FFFFFF; }}
+        QPushButton:disabled {{ background: #1A1A1A; color: #6B6B6B; border-color: #262626; }}
         QTabWidget::pane {{
             border: 1px solid #2A2A2A; border-radius: 12px; background: {SURFACE_2};
         }}
@@ -145,14 +151,6 @@ def material_qss(dark=True, hacker=False):
             width: 16px; height: 16px; margin: 2px; border-radius: 8px; background: #B0B0B0;
         }}
         QSplitter::handle {{ background: #1A1A1A; width: 6px; }}
-        QPushButton {{
-            font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif;
-            font-size: 13.5px;
-            font-weight: 600;
-            padding: 6px 10px;
-            min-height: 36px;
-            border-radius: 8px;
-        }}
         """
     else:
         # light mode (kept simple)
@@ -169,10 +167,19 @@ def material_qss(dark=True, hacker=False):
             font-family: "Noto Color Emoji", Inter, 'Segoe UI', Roboto, Helvetica, Arial;
         }}
         QPushButton {{
-            background: #FFFFFF; border: 1px solid #E0E0E0; padding: 10px 14px; border-radius: 10px;
+            background: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-radius: 8px;
+            padding: 8px 14px;
+            min-height: 36px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif;
         }}
-        QPushButton:hover {{ background: #F2F2F2; }}
-        QPushButton:pressed {{ background: {ACCENT}; color: white; }}
+        QPushButton:hover {{ background: #F2F2F2; border-color: #D0D0D0; }}
+        QPushButton:focus {{ border: 1px solid {ACCENT}; }}
+        QPushButton:pressed {{ background: {ACCENT}; color: #FFFFFF; }}
+        QPushButton:disabled {{ background: #F5F5F5; color: #AAAAAA; border-color: #EAEAEA; }}
         QTabWidget::pane {{ border: 1px solid #E0E0E0; border-radius: 12px; background: #FFFFFF; }}
         QTabBar::tab {{
             background: transparent; color: #666;
@@ -200,7 +207,4 @@ def material_qss(dark=True, hacker=False):
             width: 16px; height: 16px; margin: 2px; border-radius: 8px; background: #FFF;
         }}
         QSplitter::handle {{ background: #EEE; width: 6px; }}
-        QPushButton {{
-            font-family: "Noto Color Emoji";
-        }}
         """
