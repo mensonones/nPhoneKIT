@@ -385,6 +385,42 @@ def test_samsung_device_info_client_unlocks_and_clears_without_preload():
     ]
 
 
+def test_samsung_wifi_test_client_preserves_unlock_and_command_sequence():
+    events = []
+
+    class FakeAT:
+        def send(self, command):
+            events.append(("at", command))
+
+    class FakeModemUnlocker:
+        def unlock(self, manufacturer):
+            events.append(("unlock", manufacturer))
+
+    client = devices.SamsungWifiTestClient(
+        FakeAT(), FakeModemUnlocker(), lambda: events.append(("clear",)),
+        lambda source: "AT+WIFITEST=9,9,9,1\n+WIFITEST:9,\nOK"
+    )
+
+    assert client.open() is True
+    assert events == [
+        ("unlock", "SAMSUNG"),
+        ("at", "AT+SWATD=1"),
+        ("clear",),
+        ("at", "AT+WIFITEST=9,9,9,1"),
+    ]
+
+
+def test_samsung_wifi_test_client_rejects_incomplete_response():
+    client = devices.SamsungWifiTestClient(
+        SimpleNamespace(send=lambda command: None),
+        SimpleNamespace(unlock=lambda manufacturer: None),
+        lambda: None,
+        lambda source: "OK",
+    )
+
+    assert client.open() is False
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()

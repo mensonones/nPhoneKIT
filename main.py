@@ -264,6 +264,7 @@ from nphonekit_devices import (  # noqa: E402
     SamsungDownloadModeClient,
     SamsungDeviceInfoClient,
     SamsungRebootClient,
+    SamsungWifiTestClient,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1723,24 +1724,12 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
 def wifitest(): # Opens a hidden WLANTEST menu on Samsung devices
     info = verinfo(False)
     model = re.search(r'Model:\s*(\S+)', info)
-    success = [
-    "AT+WIFITEST=9,9,9,1",
-    "+WIFITEST:9,",
-    "OK"
-    ]
 
     print(strings['openingWifitest'], end="")
     MTPmenu()
-    modemUnlock("SAMSUNG") # Unlock modem
-    AT.send("AT+SWATD=1") # Modem must be relocked for this to work
-    rt()
-    AT.send("AT+WIFITEST=9,9,9,1") # WifiTEST command to open
-    output = readOutput("AT")
-    counter = 0
-    for i in success:
-        if i in output:
-            counter += 1
-    if counter == 3:
+    if SamsungWifiTestClient(
+        AT, samsung_modem_unlocker, rt, readOutput
+    ).open():
         print(strings['okText'])
         tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "WIFITEST", "Success"))
         tthread.start() # Sends basic, anonymized success_checks info with only the model number.

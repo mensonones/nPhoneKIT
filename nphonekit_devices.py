@@ -582,6 +582,26 @@ class SamsungDeviceInfoClient:
         return output
 
 
+class SamsungWifiTestClient:
+    """Open Samsung's hidden Wi-Fi test menu through the AT interface."""
+
+    SUCCESS_MARKERS = ("AT+WIFITEST=9,9,9,1", "+WIFITEST:9,", "OK")
+
+    def __init__(self, at_client, modem_unlocker, clear_output, read_output):
+        self.at_client = at_client
+        self.modem_unlocker = modem_unlocker
+        self.clear_output = clear_output
+        self.read_output = read_output
+
+    def open(self):
+        self.modem_unlocker.unlock("SAMSUNG")
+        self.at_client.send("AT+SWATD=1")
+        self.clear_output()
+        self.at_client.send("AT+WIFITEST=9,9,9,1")
+        output = self.read_output("AT")
+        return all(marker in output for marker in self.SUCCESS_MARKERS)
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 
