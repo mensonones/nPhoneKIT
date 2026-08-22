@@ -257,6 +257,9 @@ from nphonekit_devices import (  # noqa: E402
     ADB,
     AT,
     FastbootPartitionEraser,
+    log_command_output,
+    readOutput,
+    rt,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1153,45 +1156,6 @@ def adbMenu():
     ADB.send("devices")
     show_messagebox_at(500, 200, "nPhoneKIT", strings['adbMenu'])
     # Show user instructions to enable ADB mode
-
-# ================================================
-#  Simple functions to eliminate repetitive tasks
-# ================================================
-
-def rt(): # Flush the output buffer. May be deprecated and replaced soon with a new output collection method
-    """if os_config == "LINUX": # Flush output buffer on different OSes
-        os.system("sudo bash -c 'rm -f tmp_output.txt'")
-        os.system("sudo bash -c 'rm -f tmp_output_adb.txt'")
-    elif os_config == "WINDOWS":
-        os.system("del /F tmp_output.txt")
-        os.system("del /F tmp_output_adb.txt")"""
-
-    # Better rt() method + crossplatform + no errors
-    for f in ["tmp_output.txt", "tmp_output_adb.txt"]:
-        try:
-            os.remove(f)
-        except FileNotFoundError:
-            pass
-
-def readOutput(type): # Read the output buffer based on command type AT or ADB
-    try:
-        if type == "AT":
-            with open("tmp_output.txt", "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
-        elif type == "ADB":
-            with open("tmp_output_adb.txt", "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
-    except FileNotFoundError:
-        return ""
-    return ""
-
-def log_command_output(source, label):
-    output = readOutput(source)
-    if output:
-        print(f"\n\n{label} output:\n{output}\n\n")
-    else:
-        print(f"\n\n{label} output is empty.\n\n")
-    return output
 
 def show_messagebox_at(x, y, title, content): # Show a customizable message box
     app = QtWidgets.QApplication.instance()
