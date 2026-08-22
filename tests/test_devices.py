@@ -77,6 +77,40 @@ def test_adb_devices_hides_command_errors(monkeypatch):
     assert devices.ADB.devices() == []
 
 
+def test_samsung_bloatware_remover_targets_packages_and_succeeds():
+    class FakeADB:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command):
+            self.commands.append(command)
+
+    adb = FakeADB()
+    remover = devices.SamsungBloatwareRemover(adb, lambda source: "Success")
+
+    assert remover.remove("ABC") is True
+    assert len(adb.commands) == len(remover.PACKAGES)
+    assert adb.commands[0] == (
+        "-s ABC shell pm uninstall --user 0 com.microsoft.office.outlook"
+    )
+
+
+def test_samsung_bloatware_remover_stops_on_first_failure():
+    class FakeADB:
+        def __init__(self):
+            self.commands = []
+
+        def send(self, command):
+            self.commands.append(command)
+
+    adb = FakeADB()
+    outputs = iter(["Success", "Failure"])
+    remover = devices.SamsungBloatwareRemover(adb, lambda source: next(outputs))
+
+    assert remover.remove("ABC") is False
+    assert len(adb.commands) == 2
+
+
 def test_serial_manager_detects_linux_port(monkeypatch):
     manager = devices.SerialManager.__new__(devices.SerialManager)
     monkeypatch.setattr(devices.platform, "system", lambda: "Linux")

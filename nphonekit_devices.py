@@ -200,6 +200,56 @@ class ADB:
         return True
 
 
+class SamsungBloatwareRemover:
+    """Uninstall the known Samsung/carrier bloatware package set."""
+
+    PACKAGES = (
+        "com.microsoft.office.outlook", "com.samsung.android.bixby.ondevice.frfr",
+        "com.google.android.apps.photos", "com.sec.android.app.sbrowser",
+        "com.samsung.android.calendar", "com.samsung.android.app.reminder",
+        "com.google.android.apps.youtube.music", "com.sec.android.app.shealth",
+        "com.samsung.android.nmt.apps.t2t.languagepack.enfr",
+        "com.sec.android.app.popupcalculator", "com.booking.aidprovider",
+        "com.samsung.SMT.lang_en_us_l03", "com.samsung.android.bixby.ondevice.enus",
+        "com.google.android.apps.docs", "com.samsung.android.arzone",
+        "com.samsung.android.voc", "com.samsung.android.app.tips",
+        "com.sec.android.app.clockpackage", "com.samsung.android.app.find",
+        "com.samsung.android.app.notes", "com.amazon.appmanager",
+        "com.google.android.videos", "com.sec.android.app.voicenote",
+        "com.amazon.mShop.android.shopping", "com.facebook.katana",
+        "com.samsung.sree", "com.samsung.android.app.spage",
+        "com.samsung.android.oneconnect", "com.samsung.android.game.gamehome",
+        "com.samsung.SMT.lang_fr_fr_l01", "com.microsoft.office.officehubrow",
+        "com.samsung.android.spay", "com.samsung.android.app.watchmanager",
+        "com.samsung.android.tvplus", "com.sec.android.app.kidshome",
+        "com.booking", "com.verizon.appmanager", "com.vzwnavigator",
+        "com.vzw.syncservice", "com.verizon.syncservice", "com.verizon.login",
+        "com.vzw.voicemail", "com.vzw.nflmobile", "com.vzw.familybase",
+        "com.vzw.familylocator", "com.att.devicehelp", "com.att.addressbooksync",
+        "com.dti.att", "com.dti.folderlauncher", "com.myatt.mobile",
+        "com.tmobile.nameid", "com.tmobile.visualvm", "com.tmobile.account",
+        "com.tmobile.appmanager", "com.tmobile.appselector",
+        "com.tmobile.pr.mytmobile", "com.tmobile.echolocate",
+        "com.ironsrc.aura.tmo", "com.tmobile.pr.adapt",
+    )
+
+    def __init__(self, adb_client, read_output):
+        self.adb_client = adb_client
+        self.read_output = read_output
+
+    @staticmethod
+    def _successful(output):
+        return any(marker in output for marker in ("Success", "[n", "age:"))
+
+    def remove(self, serial):
+        """Remove packages until the first failure; return whether all succeeded."""
+        for package in self.PACKAGES:
+            self.adb_client.send(f"-s {serial} shell pm uninstall --user 0 {package}")
+            if not self._successful(self.read_output("ADB")):
+                return False
+        return True
+
+
 class SerialManager:
     """Cross-platform serial manager for AT command communication."""
 
