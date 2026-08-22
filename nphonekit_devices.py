@@ -636,6 +636,27 @@ class MtkClientRunner:
             run_command(command)
 
 
+class BatteryLevelClient:
+    """Set or reset Android's temporary battery level through ADB."""
+
+    def __init__(self, adb_client, read_output):
+        self.adb_client = adb_client
+        self.read_output = read_output
+
+    def set_level(self, percent):
+        value = str(percent).replace("%", "")
+        self.adb_client.send(f"shell dumpsys battery set level {value}")
+        return self.read_output("ADB")
+
+    def reset(self):
+        self.adb_client.send("shell dumpsys battery reset")
+        return self.read_output("ADB")
+
+    @staticmethod
+    def unauthorized(output):
+        return "unauthorized" in output
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 

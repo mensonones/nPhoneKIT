@@ -449,6 +449,35 @@ def test_mtkclient_runner_blocks_macos_without_libusb():
     assert runner.available() is False
 
 
+def test_battery_level_client_sets_level_and_strips_percent_sign():
+    commands = []
+
+    class FakeADB:
+        def send(self, command):
+            commands.append(command)
+
+    client = devices.BatteryLevelClient(FakeADB(), lambda source: "OK")
+
+    assert client.set_level("101%") == "OK"
+    assert commands == ["shell dumpsys battery set level 101"]
+
+
+def test_battery_level_client_resets_and_detects_unauthorized():
+    commands = []
+
+    class FakeADB:
+        def send(self, command):
+            commands.append(command)
+
+    client = devices.BatteryLevelClient(
+        FakeADB(), lambda source: "error: unauthorized device"
+    )
+
+    assert client.reset() == "error: unauthorized device"
+    assert client.unauthorized("error: unauthorized device") is True
+    assert commands == ["shell dumpsys battery reset"]
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()
