@@ -119,6 +119,51 @@ def has_required_group(user_groups, required_groups) -> bool:
     return any(g in user for g in (required_groups or []))
 
 
+def parse_fastboot_devices(stdout: Optional[str]) -> list[str]:
+    """Parse ``fastboot devices`` stdout into a list of serials.
+
+    Lines look like ``SERIAL\tfastboot``. Blank / malformed lines are skipped.
+    Unlike ``adb devices`` there is no header line and no per-device state
+    beyond "fastboot".
+    """
+    serials: list[str] = []
+    if not stdout:
+        return serials
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        # Accept "SERIAL fastboot" (normal) or a bare "SERIAL" line.
+        if len(parts) >= 2 and parts[1] == "fastboot":
+            serials.append(parts[0])
+        elif len(parts) == 1:
+            serials.append(parts[0])
+    return serials
+
+
+# User-facing explanations for each selection failure reason. Kept here (UI-free
+# strings) so the mapping is testable; callers render them however they like.
+_REASON_MESSAGES = {
+    NO_DEVICE: "No device detected. Connect the device and try again.",
+    UNAUTHORIZED: (
+        "Device is unauthorized. Accept the USB debugging prompt on the "
+        "device screen, then try again."
+    ),
+    OFFLINE: "Device is offline. Reconnect it (or re-plug the cable) and try again.",
+    NOT_READY: "Device is not ready yet. Wait for it to finish connecting and try again.",
+    MULTIPLE_DEVICES: (
+        "More than one device is connected. Connect only the target device and "
+        "try again — this operation refuses to guess which one you mean."
+    ),
+}
+
+
+def describe_selection_reason(reason: Optional[str]) -> str:
+    """Map a selection reason code to a user-facing message."""
+    return _REASON_MESSAGES.get(reason, "Device not available.")
+
+
 def usable_devices(pairs: list[tuple[str, str]]) -> list[str]:
     """Return serials of devices in the ready ``device`` state."""
     return [serial for serial, state in pairs if state == "device"]
