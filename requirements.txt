@@ -1,0 +1,17 @@
+# Runtime dependencies for nPhoneKIT (main.py).
+#
+# Install with:
+#     python3 -m pip install -r requirements.txt
+#
+# Note: nPhoneKIT also uses Tkinter, which is part of the Python standard
+# library but ships as a separate OS package on some systems
+# (e.g. Debian/Ubuntu: `sudo apt install python3-tk`). It is not installable
+# via pip and is therefore not listed below.
+#
+# mtkclient has its own dependency set in deps/mtkclient/requirements.txt,
+# installed separately from within the app when MTK features are used.
+
+PyQt5          # Main desktop GUI
+requests       # HTTP requests (update check, feedback/bug submission)
+pyserial       # Serial communication with the device (imported as `serial`)
+distro         # Linux distribution detection (used only on Linux)
