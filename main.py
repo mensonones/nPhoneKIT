@@ -323,10 +323,16 @@ class SerialManager: # AT command sender via class
                     pass
         elif system == "Darwin":  # macOS
             ports = glob.glob("/dev/tty.usb*")
-            return ports[0] if ports else None
+            chosen, note = nphonekit_core.select_serial_port(ports)
+            if note:
+                print(note)
+            return chosen
         else:  # Linux
             ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
-            return ports[0] if ports else None
+            chosen, note = nphonekit_core.select_serial_port(ports)
+            if note:
+                print(note)
+            return chosen
 
         return None
 
