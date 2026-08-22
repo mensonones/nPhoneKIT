@@ -95,7 +95,7 @@ default_settings = {
     "dark_theme": True,
     "hacker_font": False,
     "slower_animations": False,
-    "update_check": True,
+    "update_check": False,
     "enable_preload": True,
     "debug_info": False,
     "basic_success_checks": True,
@@ -185,30 +185,53 @@ def self_fix_serial():
         print(f"[nPhoneKIT (Self-Fix)] serial spec: {spec}")
         print(f"[nPhoneKIT (Self-Fix)] pyserial spec: {pyspec}")
 
-        # ---- Try to fix by uninstalling wrong serial + installing pyserial ----
-        print("[nPhoneKIT (Self-Fix)] Attempting auto-fix: uninstall serial, install pyserial")
-
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "serial"])
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pyserial"])
-        except Exception as pip_err:
-            print(f"[nPhoneKIT (Self-Fix)] pip failed: {pip_err}")
-            ERROR_CODE = ERR_PIP_FAILED
+        # ---- Diagnose, then fix only with explicit informed consent ----
+        # This is a genuine recovery path: pyserial is required to talk to the
+        # device, and the common failure is the wrong `serial` package being
+        # installed instead. The original code mutated the environment right
+        # away; here we show the exact commands (no shell, only the current
+        # interpreter), warn about sudo/system packages, and require a separate
+        # confirmation before touching anything.
+        if spec and not pyspec:
+            print("[nPhoneKIT (Self-Fix)] The wrong 'serial' package appears to be installed instead of pyserial.")
+            fix_cmds = [
+                [sys.executable, "-m", "pip", "uninstall", "-y", "serial"],
+                [sys.executable, "-m", "pip", "install", "--upgrade", "pyserial"],
+            ]
+            fail_code = ERR_WRONG_SERIAL_PACKAGE
         else:
-            # ---- Retry import ----
-            try:
-                import serial
-                print(f"[nPhoneKIT (Self-Fix)] serial fixed! version={getattr(serial, '__version__', 'unknown')}")
-                ERROR_CODE = ERR_OK
-            except Exception as retry_err:
-                print(f"[nPhoneKIT (Self-Fix)] Import still failing after attempted fix: {retry_err}")
-                print(traceback.format_exc())
+            print("[nPhoneKIT (Self-Fix)] pyserial does not appear to be installed.")
+            fix_cmds = [
+                [sys.executable, "-m", "pip", "install", "--upgrade", "pyserial"],
+            ]
+            fail_code = ERR_PYSERIAL_NOT_INSTALLED
 
-                # Guess most likely cause
-                if spec and not pyspec:
-                    ERROR_CODE = ERR_WRONG_SERIAL_PACKAGE
-                else:
-                    ERROR_CODE = ERR_PYSERIAL_NOT_INSTALLED
+        print("[nPhoneKIT (Self-Fix)] These commands would fix it (they change THIS Python environment):")
+        for c in fix_cmds:
+            print("    " + " ".join(c))
+        if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() == 0:
+            print("[nPhoneKIT (Self-Fix)] WARNING: running as root/sudo would modify SYSTEM Python packages.")
+
+        consent = input("[nPhoneKIT (Self-Fix)] Run the commands above now? (y/n): ")
+        if consent not in ("y", "Y"):
+            print("[nPhoneKIT (Self-Fix)] Skipped. Run the commands above yourself when ready.")
+            ERROR_CODE = fail_code
+        else:
+            try:
+                for c in fix_cmds:
+                    subprocess.check_call(c)
+            except Exception as pip_err:
+                print(f"[nPhoneKIT (Self-Fix)] pip failed: {pip_err}")
+                ERROR_CODE = ERR_PIP_FAILED
+            else:
+                try:
+                    import serial
+                    print(f"[nPhoneKIT (Self-Fix)] serial fixed! version={getattr(serial, '__version__', 'unknown')}")
+                    ERROR_CODE = ERR_OK
+                except Exception as retry_err:
+                    print(f"[nPhoneKIT (Self-Fix)] Import still failing after fix: {retry_err}")
+                    print(traceback.format_exc())
+                    ERROR_CODE = fail_code
 
     if ERROR_CODE == 0:
         print("[nPhoneKIT (Self-Fix)] Self-fix succeeded!")
@@ -231,128 +254,20 @@ MAIN_SCRIPT = os.path.abspath(__file__)
 # --- PRIVACY_UPDATER_START ---
 
 def privacyupdate():
-    import traceback
+    # The original "Privacy Mode" wrote a temporary .py file, executed it, and
+    # rewrote main.py in place to strip out networking. That self-modifying /
+    # dynamic-exec machinery has been removed. Automatic telemetry is already
+    # disabled at the source (see TELEMETRY_ENABLED / success_checks), so no
+    # self-rewrite is needed to keep this copy from phoning home.
     try:
-        FIREBASE_URL = "https://nphonekit-default-rtdb.firebaseio.com"
-        updater_code = textwrap.dedent(f'''
-    #!/usr/bin/env python3
-    import time, subprocess, sys, uuid, requests, hashlib, traceback
-
-    TARGET = r"{MAIN_SCRIPT}"
-
-    time.sleep(0.5)
-
-    try:
-        def get_public_hardware_uuid():
-            mac = uuid.getnode()
-            mac_str = str(mac).encode('utf-8')
-
-            # Hash the MAC so it's not identifying
-            hashed_mac = hashlib.sha256(mac_str).hexdigest()
-
-            # Optionally convert to UUID format (UUID5 with a fixed namespace)
-            return uuid.UUID(hashlib.md5(hashed_mac.encode()).hexdigest())
-
-        data = {{
-            "timestamp": time.time(), # Basic success check info
-            "uuid": str(get_public_hardware_uuid()), # Private hashed identifier in order to get anonymous active user estimation
-            "model": "",
-            "action": "",
-            "status": "privacymode activated",
-            "phoneKITversion": "{VERSION}",
-            "errors": ""
-        }}
-
-        try:
-            response = requests.post(f"{FIREBASE_URL}/success_checks_v2.json", json=data)
-        except Exception as e:
-            silentError = 1
-
-        with open(TARGET, "r") as f:
-            content = f.read()
-
-        START = "# --- PRIVACY_UPDATER" + "_START ---"
-        END = "# --- PRIVACY_UPDATER" + "_END ---"
-
-        before = content[:content.index(START)]
-        protected = content[content.index(START):content.index(END) + len(END)]
-        after = content[content.index(END) + len(END):]
-
-        def patch(s):
-            return (s
-                .replace("response = requests.post", "response = None #")
-                .replace("# Communicate with external servers to verify whether an action worked or not.", "# This copy of nPhoneKIT can NOT access external servers, Privacy Mode is active.")
-                .replace("import requests", "")
-                .replace("import urllib.request", "")
-                .replace("Requesting different servers", "Requesting different servers is disabled on Privacy Mode copies of nPhoneKIT.")
-                .replace("strings['updateCheckFailed']", "'Update check failed: This is a Privacy Mode copy of nPhoneKIT.'")
-                .replace('win.title("nPhoneKIT")', 'win.title("nPhoneKIT (Privacy Mode)")')
-                .replace('title = QtWidgets.QLabel("nPhoneKIT")', 'title = QtWidgets.QLabel("nPhoneKIT (Private)")')
-                .replace("            (strings.get('feedback', 'Feedback'), feedback_actions),", "")
-                .replace("DO NOT IGNORE THIS MESSAGE:", "DO NOT IGNORE THIS MESSAGE (especially since you're on Privacy Mode!):")
-                .replace("layout.addWidget(privacy_btn)", "")
-            )
-
-        new_content = patch(before) + protected + patch(after)
-
-        with open(TARGET, "w") as f:
-            f.write(new_content)
-            
-        print("nPhoneKIT is now incapable of accessing the internet.\\nImportant! This means automated update checks will not work.\\nAutomatically closing in 3 seconds, then restart nPhoneKIT...")
-        time.sleep(3)
-        subprocess.Popen([sys.executable, TARGET])
-    except Exception as e:
-        traceback.print_exc()
-        input("Updater crashed. Press enter to close...")
-    ''').lstrip('\n')
-        fd, updater_path = tempfile.mkstemp(suffix="_updater.py")
-
-        updater_code = textwrap.dedent(updater_code)
-
-        with os.fdopen(fd, "w") as f:
-            f.write(updater_code)
-
-        #with open("debug_updater.py", "w") as dbg:
-        #    dbg.write(open(updater_path).read())
-
-        system = platform.system()
-
-        if system == "Windows":
-            # Opens a new cmd window running the updater
-            subprocess.Popen(
-                f'start "" "{sys.executable}" "{updater_path}"',
-                shell=True
-            )
-
-        elif system == "Darwin":
-            # macOS: use Terminal.app via AppleScript
-            cmd = f'{sys.executable} "{updater_path}"'
-            applescript = f'tell application "Terminal" to do script "{cmd}"'
-            subprocess.Popen(["osascript", "-e", applescript])
-
-        else:
-            # Linux: try common terminal emulators in order until one works
-            terminal_cmds = [
-                ["x-terminal-emulator", "-e", f'{sys.executable} "{updater_path}"'],
-                ["gnome-terminal", "--", sys.executable, updater_path],
-                ["konsole", "-e", sys.executable, updater_path],
-                ["xfce4-terminal", "-e", f'{sys.executable} "{updater_path}"'],
-                ["mate-terminal", "-e", f'{sys.executable} "{updater_path}"'],
-                ["xterm", "-e", f'{sys.executable} "{updater_path}"'],
-            ]
-            for cmd in terminal_cmds:
-                try:
-                    subprocess.Popen(cmd)
-                    break
-                except FileNotFoundError:
-                    continue
-            else:
-                # Fallback: no terminal found, just run it headless
-                subprocess.Popen([sys.executable, updater_path])
-    except Exception as e:
-        traceback.print_exc()
-        input("Crashed. Press enter to close...")
-    sys.exit(0)
+        messagebox.showinfo(
+            "nPhoneKIT",
+            "Privacy Mode is not needed in this build: automatic telemetry is "
+            "already disabled and nPhoneKIT does not contact external servers "
+            "on its own."
+        )
+    except Exception:
+        print("[nPhoneKIT] Automatic telemetry is disabled in this build.")
 
 # --- PRIVACY_UPDATER_END ---
 
@@ -1580,13 +1495,15 @@ def check_for_update():
             # *************************************************************************
 
             if latest_version != VERSION:
+                # Note: the upstream project could force-quit the app here for a
+                # "critical" update (the U+2174 trick). That remote lockout has
+                # been removed so an update notice can never block local use.
                 if "ⅴ" in latest_version_raw:
                     messagebox.showinfo(
                         strings['updateReqd'],
                         strings['updateReqdString'].format(version=VERSION, latest_version=latest_version)
                     )
-                    sys.exit(0) # Exit and do not let user use nPhoneKIT if the update is REQUIRED or critical
-                else:   
+                else:
                     messagebox.showinfo(
                         strings['updateAvail'],
                         strings['updateAvailString'].format(version=VERSION, latest_version=latest_version)
@@ -1606,7 +1523,16 @@ def get_public_hardware_uuid():
 
 FIREBASE_URL = "https://nphonekit-default-rtdb.firebaseio.com/" # URL for success checks
 
+# --- Automatic telemetry hard-disabled ---
+# nPhoneKIT normally phones home to Firebase on startup and after actions,
+# sending a hashed-MAC UUID, model, action, status, captured errors and OS info.
+# This is not required for any device (ADB/serial/FRP/MTK) functionality, so it
+# is disabled here. Set to True to re-enable the automatic success checks.
+TELEMETRY_ENABLED = False
+
 def success_checks(uuid, model, action, status, first=True):
+    if not TELEMETRY_ENABLED:
+        return  # Automatic telemetry disabled: never contact external servers.
     if basic_success_checks:
         if first:
             data = {
@@ -3084,24 +3010,9 @@ class SettingsDialog(QtWidgets.QDialog):
             r += 1
         layout.addLayout(grid)
 
-        # Privacy Mode button
-        privacy_btn = QtWidgets.QPushButton("🔒 Privacy Mode (Permanent)")
-        privacy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #1a1a1a;
-                color: #ff4444;
-                border: 1px solid #ff4444;
-                border-radius: 4px;
-                padding: 6px;
-                margin-top: 10px;
-            }
-            QPushButton:hover {
-                background-color: #ff4444;
-                color: white;
-            }
-        """)
-        privacy_btn.clicked.connect(privacyupdate)
-        layout.addWidget(privacy_btn)
+        # Privacy Mode button removed: it triggered a self-modifying updater that
+        # wrote and executed a temporary .py and rewrote main.py in place. Its
+        # only purpose was disabling telemetry, which is now off at the source.
 
         layout.addSpacing(8)
         dev_label = QtWidgets.QLabel(strings.get('devSettingsTitle','Developer Settings'))
