@@ -22,7 +22,6 @@ from tkinter import font # Customizing GUI font
 from pathlib import Path # Importing settings
 import sys # Getting basic system info
 import re # Finding strings within text
-import subprocess # Opening new processes
 import platform # Checking the current OS
 import asyncio # Running different actions asynchronously
 import threading # Using multiple threads
@@ -38,7 +37,6 @@ from nphonekit_ui import (
     QtDialogHelper,
 )
 from datetime import datetime, timedelta
-import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 from nphonekit_services import (
     FeedbackClient,
@@ -46,8 +44,7 @@ from nphonekit_services import (
     UpdateClient,
     public_hardware_uuid,
 )
-from nphonekit_maintenance import get_os_info
-import traceback # Error handling
+from nphonekit_maintenance import get_os_info, self_fix_serial
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -161,91 +158,6 @@ if os_config == "WINDOWS":
     enable_preload = False # Preload doesn't work on Windows; disable it
 
 preload_done = threading.Event() # Event variable to check whether the Samsung modem preload has completed
-
-# Self-fix function for the common PySerial import error
-def self_fix_serial():
-    # =========================
-    # Error Codes
-    # =========================
-    ERR_OK = 0
-    ERR_PYSERIAL_NOT_INSTALLED = 1001
-    ERR_WRONG_SERIAL_PACKAGE = 1002
-    ERR_PIP_FAILED = 1003
-    ERR_IMPORT_SHADOWED = 1004
-
-    print(f"[nPhoneKIT (Self-Fix)] Python: {sys.executable}")
-
-    # ---- Check for local shadowing ----
-    shadow = None
-    for candidate in ["serial.py", "serial"]:
-        if os.path.exists(os.path.join(os.getcwd(), candidate)):
-            shadow = os.path.join(os.getcwd(), candidate)
-            break
-
-    if shadow:
-        print(f"[nPhoneKIT (Self-Fix)] Found shadowing path: {shadow}")
-        print("[nPhoneKIT (Self-Fix)] Remove or rename this file/folder for nPhoneKIT to work.")
-        ERROR_CODE = ERR_IMPORT_SHADOWED
-    else:
-        # ---- Detect installed packages ----
-        spec = importlib.util.find_spec("serial")
-        pyspec = importlib.util.find_spec("pyserial")
-
-        print(f"[nPhoneKIT (Self-Fix)] serial spec: {spec}")
-        print(f"[nPhoneKIT (Self-Fix)] pyserial spec: {pyspec}")
-
-        # ---- Diagnose, then fix only with explicit informed consent ----
-        # This is a genuine recovery path: pyserial is required to talk to the
-        # device, and the common failure is the wrong `serial` package being
-        # installed instead. The original code mutated the environment right
-        # away; here we show the exact commands (no shell, only the current
-        # interpreter), warn about sudo/system packages, and require a separate
-        # confirmation before touching anything.
-        if spec and not pyspec:
-            print("[nPhoneKIT (Self-Fix)] The wrong 'serial' package appears to be installed instead of pyserial.")
-            fix_cmds = [
-                [sys.executable, "-m", "pip", "uninstall", "-y", "serial"],
-                [sys.executable, "-m", "pip", "install", "--upgrade", "pyserial"],
-            ]
-            fail_code = ERR_WRONG_SERIAL_PACKAGE
-        else:
-            print("[nPhoneKIT (Self-Fix)] pyserial does not appear to be installed.")
-            fix_cmds = [
-                [sys.executable, "-m", "pip", "install", "--upgrade", "pyserial"],
-            ]
-            fail_code = ERR_PYSERIAL_NOT_INSTALLED
-
-        print("[nPhoneKIT (Self-Fix)] These commands would fix it (they change THIS Python environment):")
-        for c in fix_cmds:
-            print("    " + " ".join(c))
-        if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() == 0:
-            print("[nPhoneKIT (Self-Fix)] WARNING: running as root/sudo would modify SYSTEM Python packages.")
-
-        consent = input("[nPhoneKIT (Self-Fix)] Run the commands above now? (y/n): ")
-        if consent not in ("y", "Y"):
-            print("[nPhoneKIT (Self-Fix)] Skipped. Run the commands above yourself when ready.")
-            ERROR_CODE = fail_code
-        else:
-            try:
-                for c in fix_cmds:
-                    subprocess.check_call(c)
-            except Exception as pip_err:
-                print(f"[nPhoneKIT (Self-Fix)] pip failed: {pip_err}")
-                ERROR_CODE = ERR_PIP_FAILED
-            else:
-                try:
-                    import serial
-                    print(f"[nPhoneKIT (Self-Fix)] serial fixed! version={getattr(serial, '__version__', 'unknown')}")
-                    ERROR_CODE = ERR_OK
-                except Exception as retry_err:
-                    print(f"[nPhoneKIT (Self-Fix)] Import still failing after fix: {retry_err}")
-                    print(traceback.format_exc())
-                    ERROR_CODE = fail_code
-
-    if ERROR_CODE == 0:
-        print("[nPhoneKIT (Self-Fix)] Self-fix succeeded!")
-    else:
-        print(f"[nPhoneKIT (Self-Fix)] Failed to fix the error. Please open a GitHub issue with the error code: {ERROR_CODE}")
 
 # Imports that have error handling because they are sometimes not installed or are the cause of another error
 try:
