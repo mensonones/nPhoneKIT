@@ -1075,62 +1075,9 @@ def frp_unlock_pre_aug2022():
     samsung_frp_actions.pre_aug2022()
 
 
-def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security patch update
-    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_2022_23")
-    if method:
-            m = method
-            picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:
-                print(strings['getVerInfo'], end="")
-                info = verinfo(False)
-                model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
+def frp_unlock_aug2022_to_dec2022():
+    samsung_frp_actions.unlock_2022_to_dec2022()
 
-                if info == "Fail":
-                    print(strings['deviceCheckPluggedIn2'])
-                    tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Aug_To_Dec_2022", "Fail"))
-                    tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                else:
-                    # These commands are supposed to overwhelm the phone and trick it into enabling ADB. The rest after this is the same as the other unlock method.
-                    commands = samsung_2022_commands()
-
-                    ADBcommands = [ # Run list of commands in order to complete the unlock with newly-enabled ADB
-                        "shell settings put global setup_wizard_has_run 1",
-                        "shell settings put secure user_setup_complete 1",
-                        "shell content insert --uri content://settings/secure --bind name:s:DEVICE_PROVISIONED --bind value:i:1",
-                        "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:i:1",
-                        "shell content insert --uri content://settings/secure --bind name:s:INSTALL_NON_MARKET_APPS --bind value:i:1",
-                        "shell am start -c android.intent.category.HOME -a android.intent.action.MAIN"
-                    ]
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['misuseFrpGuidance2022'])
-
-                    print(strings['attemptingEnableAdb'], end="")
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['frpUnlockSteps2022'])
-
-                    for command in commands:
-                        AT.send(command)
-
-                    output = log_command_output("AT", "AT")
-
-                    if "error" in output.lower():
-                        print(strings['failText'])
-                        print(strings['frpNotCompatible'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Aug_To_Dec_2022", "Fail"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
-                    else:
-                        print(strings['okText'])
-                        print(strings['runUnlock'], end="")
-                        show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
-                        for command in ADBcommands:
-                            ADB.send(command)
-                            log_command_output("ADB", f"ADB {command}")
-                        print(strings['okText'])
-                        print(strings['unlockSuccess'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Aug_To_Dec_2022", "Success"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
 
 def frp_unlock_2024():
     samsung_frp_actions.unlock_2024()

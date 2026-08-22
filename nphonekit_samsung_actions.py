@@ -256,3 +256,55 @@ class SamsungFrpActions:
             print(strings["frpNotCompatible"])
             self._report(model, action, "Fail")
             self.formrequest()
+
+    def unlock_2022_to_dec2022(self):
+        method = next(
+            (item for item in self.load_methods("unlocks.json") if item.get("id") == "sam_2022_23"),
+            None,
+        )
+        if not method or not self.confirm_method(
+            method["title"], method["desc"], method["pros"], method["cons"], method["minutes"]
+        ):
+            return
+
+        strings = self.strings
+        print(strings["getVerInfo"], end="")
+        info = self.verinfo(False)
+        model = re.search(r"Model:\s*(\S+)", info)
+        action = "FRP_Unlock_Aug_To_Dec_2022"
+        if info == "Fail":
+            print(strings["deviceCheckPluggedIn2"])
+            self._report(model, action, "Fail")
+            return
+
+        adb_commands = [
+            "shell settings put global setup_wizard_has_run 1",
+            "shell settings put secure user_setup_complete 1",
+            "shell content insert --uri content://settings/secure --bind name:s:DEVICE_PROVISIONED --bind value:i:1",
+            "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:i:1",
+            "shell content insert --uri content://settings/secure --bind name:s:INSTALL_NON_MARKET_APPS --bind value:i:1",
+            "shell am start -c android.intent.category.HOME -a android.intent.action.MAIN",
+        ]
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["misuseFrpGuidance2022"])
+        print(strings["attemptingEnableAdb"], end="")
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["frpUnlockSteps2022"])
+        for command in samsung_2022_commands():
+            self.at.send(command)
+
+        if "error" in self.log_command_output("AT", "AT").lower():
+            print(strings["failText"])
+            print(strings["frpNotCompatible"])
+            self._report(model, action, "Fail")
+            self.formrequest()
+            return
+
+        print(strings["okText"])
+        print(strings["runUnlock"], end="")
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["usbDebuggingPromptCheck"])
+        for command in adb_commands:
+            self.adb.send(command)
+            self.log_command_output("ADB", f"ADB {command}")
+        print(strings["okText"])
+        print(strings["unlockSuccess"])
+        self._report(model, action, "Success")
+        self.formrequest()
