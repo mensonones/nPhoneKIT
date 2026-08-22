@@ -1,9 +1,13 @@
 """Reusable PyQt5 components used by the nPhoneKIT desktop application."""
 
 import re
+import sys
 import webbrowser
+from dataclasses import dataclass
+from functools import partial
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from nphonekit_core import build_tab_specs
 
 
 TEXT = "#EAEAEA"
@@ -312,3 +316,210 @@ class SettingsDialog(QtWidgets.QDialog):
         layout.addWidget(title)
         layout.addStretch(1)
         return widget
+
+
+@dataclass
+class MainWindowServices:
+    strings: dict
+    version: str
+    actions: dict
+    load_settings: object
+    save_settings: object
+    find_logo: object
+    material_qss: object
+
+
+class MainWindow(QtWidgets.QMainWindow):
+    instance = None
+
+    primary_btn_qss = """
+    QPushButton {
+        background: #7C4DFF; color: white; border: none; border-radius: 10px;
+        font-weight: 700;
+        font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif;
+    }
+    QPushButton:hover { background: #5E35B1; }
+    """
+    secondary_btn_qss = """
+    QPushButton {
+        background: #1E1E1E; border: 1px solid #2A2A2A; border-radius: 10px;
+        font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif;
+    }
+    QPushButton:hover { background: #262626; }
+    """
+
+    def __init__(self, services):
+        super().__init__()
+        MainWindow.instance = self
+        self.services = services
+        self.setWindowTitle("nPhoneKIT")
+        self.resize(1550, 860)
+        self.pool = QtCore.QThreadPool.globalInstance()
+        self._settings = services.load_settings()
+        self.apply_theme(self._settings.get("dark_theme", True), self._settings.get("hacker_font", False))
+
+        splitter = QtWidgets.QSplitter()
+        splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.setCentralWidget(splitter)
+        left = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(left)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+        self.tabs = QtWidgets.QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.setTabPosition(QtWidgets.QTabWidget.North)
+        layout.addWidget(self.tabs)
+        splitter.addWidget(left)
+
+        right = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 12, 12)
+        right_layout.setSpacing(10)
+        right_layout.addWidget(self._build_header())
+        self.output = QtWidgets.QTextEdit()
+        self.output.setReadOnly(True)
+        right_layout.addWidget(self.output, 1)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
+
+        self._redirector = QtRedirectText(self.output)
+        sys.stdout = self._redirector
+        sys.stderr = self._redirector
+        self.overlay = BusyOverlay(self)
+        self._brand_index = {}
+        self._build_brand_tabs()
+        print(self.services.strings.get("nPhoneKITwelcome", "Welcome to nPhoneKIT").format(version=services.version))
+        print(self.services.strings.get("newIn1.3.2", ""))
+        self._fade_in()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.centralWidget().setSizes([1, 1])
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.overlay and self.overlay.isVisible():
+            self.overlay.setGeometry(self.rect())
+
+    def _build_header(self):
+        bar = QtWidgets.QFrame()
+        bar.setObjectName("Header")
+        layout = QtWidgets.QHBoxLayout(bar)
+        layout.setContentsMargins(16, 10, 16, 10)
+        logo = QtWidgets.QLabel()
+        logo.setFixedSize(36, 36)
+        path = self.services.find_logo()
+        if path:
+            logo.setPixmap(QtGui.QPixmap(path).scaled(36, 36, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+        else:
+            pixmap = QtGui.QPixmap(36, 36)
+            pixmap.fill(QtCore.Qt.transparent)
+            painter = QtGui.QPainter(pixmap)
+            gradient = QtGui.QLinearGradient(0, 0, 36, 36)
+            gradient.setColorAt(0, QtGui.QColor(124, 77, 255))
+            gradient.setColorAt(1, QtGui.QColor(3, 218, 198))
+            painter.setBrush(gradient)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.drawRoundedRect(0, 0, 36, 36, 8, 8)
+            painter.end()
+            logo.setPixmap(pixmap)
+        title = QtWidgets.QLabel("nPhoneKIT")
+        title.setObjectName("AppTitle")
+        subtitle = QtWidgets.QLabel(f"v{self.services.version}")
+        subtitle.setStyleSheet("color: rgba(255,255,255,0.85); font-size:13px;")
+        title_box = QtWidgets.QVBoxLayout()
+        title_box.setSpacing(0)
+        title_box.addWidget(title)
+        title_box.addWidget(subtitle)
+        settings_button = QtWidgets.QPushButton(self.services.strings.get("settingsMenuTitleText", "Settings"))
+        settings_button.clicked.connect(self.open_settings)
+        layout.addWidget(logo)
+        layout.addSpacing(10)
+        layout.addLayout(title_box)
+        layout.addStretch(1)
+        layout.addWidget(settings_button)
+        return bar
+
+    def _brand_tab(self, title, actions):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(16)
+
+        def add_section(section_title, items, primary_first=False):
+            label = QtWidgets.QLabel(section_title)
+            label.setStyleSheet("font-size:30px; font-weight:700; font-family: 'Fira Sans', 'Segoe UI', 'Ubuntu', 'Inter', 'Noto Color Emoji', sans-serif; color:#CFCFCF; margin-left:4px;")
+            layout.addWidget(label)
+            grid = QtWidgets.QGridLayout()
+            grid.setHorizontalSpacing(12)
+            grid.setVerticalSpacing(12)
+            for index, (text, tooltip, function) in enumerate(items):
+                button = QtWidgets.QPushButton(text)
+                button.setToolTip(tooltip)
+                button.setMinimumHeight(48)
+                button.setStyleSheet(self.primary_btn_qss if primary_first and index == 0 else self.secondary_btn_qss)
+                button.clicked.connect(partial(self.run_task, function))
+                card = QtWidgets.QFrame()
+                card.setStyleSheet("""
+                    QFrame { background: rgba(255,255,255,0.02); border: 1px solid #2A2A2A; border-radius: 12px; }
+                """)
+                card_layout = QtWidgets.QVBoxLayout(card)
+                card_layout.setContentsMargins(10, 10, 10, 10)
+                card_layout.addWidget(button)
+                grid.addWidget(card, index // 2, index % 2)
+            layout.addLayout(grid)
+
+        if title == "Samsung":
+            add_section("🔓 FRP Unlock", actions[:4], primary_first=True)
+            add_section("🛠 Device Tools", actions[4:])
+        elif title == "Feedback":
+            add_section("📩 Leave Feedback", actions, primary_first=True)
+        else:
+            add_section("🛠 Device Tools", actions)
+        layout.addStretch(1)
+        return widget
+
+    def _build_brand_tabs(self):
+        tab_specs = build_tab_specs(self.services.strings, self.services.actions)
+        self.tabs.clear()
+        self._brand_index.clear()
+        for index, (title, actions) in enumerate(tab_specs):
+            self.tabs.addTab(self._brand_tab(title, actions), title)
+            self._brand_index[title] = index
+        self.set_brand("Samsung")
+
+    def set_brand(self, name):
+        index = self._brand_index.get(name)
+        if index is not None:
+            self.tabs.setCurrentIndex(index)
+
+    def run_task(self, function):
+        self.overlay.start()
+        worker = Worker(function)
+        worker.signals.finished.connect(self.overlay.stop)
+        worker.signals.error.connect(lambda error: print(f" FAIL {error}"))
+        self.pool.start(worker)
+
+    def open_settings(self):
+        dialog = SettingsDialog(
+            self,
+            settings=self._settings,
+            strings=self.services.strings,
+            save_settings=self.services.save_settings,
+            find_logo=self.services.find_logo,
+        )
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            self._settings = dialog.settings
+            self.apply_theme(self._settings.get("dark_theme", True), self._settings.get("hacker_font", False))
+
+    def apply_theme(self, dark, hacker):
+        self.setStyleSheet(self.services.material_qss(dark=dark, hacker=hacker))
+
+    def _fade_in(self):
+        self.setWindowOpacity(0.0)
+        animation = QtCore.QPropertyAnimation(self, b"windowOpacity", self)
+        animation.setDuration(400 if not self._settings.get("slower_animations", False) else 900)
+        animation.setStartValue(0.0)
+        animation.setEndValue(1.0)
+        animation.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
