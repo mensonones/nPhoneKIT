@@ -59,6 +59,7 @@ from nphonekit_other_actions import (
     set_fake_battery_percent,
     submit_feedback,
 )
+from nphonekit_ui_helpers import find_logo
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1396,12 +1397,6 @@ TEXT_DIM = "#B9B9B9"
 OK_COLOR = "#35D07F"
 FAIL_COLOR = "#FF6B6B"
 
-def _find_logo():
-    for p in ("assets/logo.png", "logo.png", "./assets/logo.png", "./logo.png"):
-        if os.path.exists(p):
-            return p
-    return None
-
 def _material_qss(dark=True, hacker=False):
     #base_font = "JetBrains Mono" if hacker else "Inter, 'Segoe UI', Roboto, Helvetica, Arial"
     base_font = "'Fira Sans', 'JetBrains Mono', 'Segoe UI', 'Ubuntu', sans-serif"
@@ -1583,7 +1578,7 @@ def main():
         actions=build_ui_actions(),
         load_settings=load_settings,
         save_settings=save_settings,
-        find_logo=_find_logo,
+        find_logo=find_logo,
         material_qss=_material_qss,
     )
     win = UiMainWindow(services)
