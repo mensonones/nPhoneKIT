@@ -202,3 +202,71 @@ def test_has_required_group_empty_user_groups():
 def test_has_required_group_handles_none():
     assert core.has_required_group(None, SERIAL_GROUPS) is False
     assert core.has_required_group(["dialout"], None) is False
+
+
+# ---------------------------------------------------------------------------
+# parse_fastboot_devices
+# ---------------------------------------------------------------------------
+
+def test_parse_fastboot_devices_single():
+    assert core.parse_fastboot_devices("ZY22ABCDEF\tfastboot\n") == ["ZY22ABCDEF"]
+
+
+def test_parse_fastboot_devices_multiple():
+    out = "AAAA\tfastboot\nBBBB\tfastboot\n"
+    assert core.parse_fastboot_devices(out) == ["AAAA", "BBBB"]
+
+
+def test_parse_fastboot_devices_empty_and_none():
+    assert core.parse_fastboot_devices("") == []
+    assert core.parse_fastboot_devices(None) == []
+    assert core.parse_fastboot_devices("\n\n") == []
+
+
+def test_parse_fastboot_devices_bare_serial_line():
+    assert core.parse_fastboot_devices("AAAA\n") == ["AAAA"]
+
+
+# ---------------------------------------------------------------------------
+# fastboot selection via select_target_device (0 / 1 / many)
+# ---------------------------------------------------------------------------
+
+def _fb_pairs(serials):
+    return [(s, "device") for s in serials]
+
+
+def test_fastboot_single_ok():
+    serial, reason = core.select_target_device(_fb_pairs(["AAAA"]))
+    assert serial == "AAAA"
+    assert reason is None
+
+
+def test_fastboot_none_refused():
+    serial, reason = core.select_target_device(_fb_pairs([]))
+    assert serial is None
+    assert reason == core.NO_DEVICE
+
+
+def test_fastboot_multiple_refused():
+    serial, reason = core.select_target_device(_fb_pairs(["AAAA", "BBBB"]))
+    assert serial is None
+    assert reason == core.MULTIPLE_DEVICES
+
+
+# ---------------------------------------------------------------------------
+# describe_selection_reason
+# ---------------------------------------------------------------------------
+
+def test_describe_reason_known_codes_are_nonempty():
+    for reason in (core.NO_DEVICE, core.UNAUTHORIZED, core.OFFLINE,
+                   core.NOT_READY, core.MULTIPLE_DEVICES):
+        msg = core.describe_selection_reason(reason)
+        assert isinstance(msg, str) and msg
+
+
+def test_describe_reason_unknown_has_fallback():
+    assert core.describe_selection_reason("something_else") == "Device not available."
+
+
+def test_describe_reason_none_has_fallback():
+    assert core.describe_selection_reason(None) == "Device not available."

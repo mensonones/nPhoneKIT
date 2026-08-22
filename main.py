@@ -1482,6 +1482,17 @@ class FastbootPartitionEraser:
         args += ['-w']
         return self._run(args)
 
+    def list_devices(self):
+        """Return the serials fastboot currently sees (may be empty)."""
+        try:
+            out = subprocess.run(
+                [self.fastboot, "devices"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout
+        except Exception:
+            return []
+        return nphonekit_core.parse_fastboot_devices(out)
+
 def pullerrors():
     if MainWindow.instance is None:
         return ""
@@ -2193,11 +2204,30 @@ def MotoFastbootFRP1():
             if picked:
                 show_messagebox_at(200,200,"nPhoneKIT",strings["motoFastbootGuide"])
                 # erase frp partitions upon fastboot access granted
-                eraser = FastbootPartitionEraser()
-                ecf_stat = eraser.erase_config()
-                eps_stat = eraser.erase_persist()
-                efr_stat = eraser.erase_frp()
-                wdc_stat = eraser.wipe_data_cache()
+                try:
+                    eraser = FastbootPartitionEraser()
+                except FileNotFoundError as e:
+                    print(f"Aborting: {e}")
+                    show_messagebox_at(200, 200, "nPhoneKIT", str(e))
+                    return
+
+                # Pre-flight: refuse to erase/wipe unless exactly one device is
+                # in fastboot. With 0 or several connected, `fastboot` would act
+                # on an ambiguous target -- and wipe_data_cache is `fastboot -w`,
+                # which erases userdata. Target the chosen serial explicitly.
+                serial, reason = nphonekit_core.select_target_device(
+                    [(s, "device") for s in eraser.list_devices()]
+                )
+                if reason:
+                    msg = nphonekit_core.describe_selection_reason(reason)
+                    print(f"Aborting fastboot FRP erase: {msg}")
+                    show_messagebox_at(200, 200, "nPhoneKIT", msg)
+                    return
+
+                ecf_stat = eraser.erase_config(serial)
+                eps_stat = eraser.erase_persist(serial)
+                efr_stat = eraser.erase_frp(serial)
+                wdc_stat = eraser.wipe_data_cache(serial)
 
 # ==============================================
 #  Simple functions that do stuff to the device
