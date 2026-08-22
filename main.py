@@ -45,8 +45,6 @@ import shlex
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
-import tempfile
-import textwrap
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
 
@@ -89,8 +87,6 @@ DEBUGMODE = False
 SETTINGS_PATH = Path("settings.json") # Load settings externally
 
 firstunlock = False # This variable helps ModemPreload work
-
-import random
 
 default_settings = {
     "dark_theme": True,
@@ -689,13 +685,12 @@ async def preload_samsung_modem(serman2):
 
     preload_done.set()
 
-import tkinter as tk
-from tkinter import ttk, font
-from datetime import datetime, timedelta
+# tk, ttk, font, datetime, timedelta are already imported at the top of the file
+# (this block previously re-imported them, flagged by ruff as F811).
 import math
 import threading
 import multiprocessing
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 def get_os_info():
     info = {}
