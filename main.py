@@ -389,7 +389,7 @@ class SerialManagerWindows: # Version of SerialManager class specifically for Wi
             if self.debug:
                 print(f"{strings['sermanOpeningPortError']}{self.port}: {e}")
             self.ser = None
-        
+
     def reset(self):
         self.__init__()
 
@@ -398,7 +398,7 @@ class SerialManagerWindows: # Version of SerialManager class specifically for Wi
         ports = list_ports.comports()
         if self.debug:
             print(f"{strings['sermanWinAvailablePorts']}{[p.device for p in ports]}")
-        
+
         # Sort ports to prioritize ones that are more likely to be phones
         # Phones often have "USB" or "Mobile" in their description
         sorted_ports = sorted(ports, key=lambda p: (
@@ -486,7 +486,7 @@ class AT:
                 except Exception:
                     # Device must not be plugged in?
                     print(strings['deviceConCheckNotPlugged'])
-    
+
 class ADB: # ADB class for sending ADB commands if needed
     def path(): # Resolve the adb binary once so every call agrees on which adb to use
         adb_path = shutil.which("adb")
@@ -641,7 +641,7 @@ def check_serial_permissions():
         return False
     else:
         return True
-    
+
 async def preload_samsung_modem(serman2):
     global enable_preload
     global preload_error
@@ -1516,7 +1516,7 @@ def check_for_update():
             # If the tag is different then the current version, assume it's newer, and prompt update.
 
             # Based on the unicode "v", depending on whether it's normal or U+2174, prompt for normal update and FORCE for critical update
-            
+
             # *************************************************************************
             # It's not reccomended to change this in order to bypass a critical update.
             # *************************************************************************
@@ -1591,7 +1591,7 @@ def success_checks(uuid, model, action, status, first=True):
                 response = requests.post(f"{FIREBASE_URL}/success_checks.json", json=data)
             except Exception as e:
                 silentError = 1
-            
+
             if not os.path.isfile(".notfirst"):
                 data = {
                     "timestamp": time.time(), # Basic success check info
@@ -1629,7 +1629,7 @@ def rt(): # Flush the output buffer. May be deprecated and replaced soon with a 
     elif os_config == "WINDOWS":
         os.system("del /F tmp_output.txt")
         os.system("del /F tmp_output_adb.txt")"""
-    
+
     # Better rt() method + crossplatform + no errors
     for f in ["tmp_output.txt", "tmp_output_adb.txt"]:
         try:
@@ -1806,7 +1806,7 @@ def modemUnlock(manufacturer, softUnlock=False): # Unlock the modem per-action i
 
     if os_config == "LINUX":
         if not enable_preload:
-            if preload_error and firstunlock == False:
+            if preload_error and firstunlock is False:
                 if manufacturer == "SAMSUNG": # Select the manufacturer to preload
                     AT.send("AT+SWATD=0", True) # Disables some sort of a proprietary "AT commands lock" from SAMSUNG
                     AT.send("AT+ACTIVATE=0,0,0", True) # An activation sequence that unlocks the modem when paired with the above command.
@@ -1869,9 +1869,9 @@ def parse_devconinfo(raw_input):
 
 def lu(path="unlocks.json"):
     return json.loads(Path(path).read_text(encoding="utf-8"))
-               
+
 def formrequest():
-    if contributionsuggestions == True:
+    if contributionsuggestions is True:
         contribution_prompt(500, 500)
 # =============================================
 #  Unlocking methods for different devices
@@ -2075,7 +2075,7 @@ def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
                             return
                         print(strings['okText'])
                         print(strings['unlockSuccess'])
-                        if model == "" or model == None:
+                        if model == "" or model is None:
                             # Retry get model
                             info = verinfo(False, False)
                             model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
@@ -2141,7 +2141,7 @@ def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch up
                                 raise RuntimeError(f"ADB command failed: {command}")
                         print(strings['okText'])
                         print(strings['unlockSuccess'])
-                        if model == "" or model == None:
+                        if model == "" or model is None:
                             # Retry get model
                             info = verinfo(False, False)
                             model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
@@ -2177,7 +2177,7 @@ def LG_screen_unlock(): # Screen unlock on supported LG devices *untested*
                 print(strings['lgRunningScreenUnlock'], end="")
                 # Prepare phone for unlock
                 show_messagebox_at(600, 100, "nPhoneKIT", strings['lgScreenUnlockSteps'])
-                
+
                 time.sleep(1)
                 if AT.usbswitch("-l", "LG Screen Unlock"):
                     rt() # Flush the output buffer
@@ -2240,10 +2240,10 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
             print(strings['getVerInfo'], end="")
             AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
             output = readOutput("AT") # Output is retrieved from the command
-            if output == "" or output == None:
+            if output == "" or output is None:
                 AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
                 output = readOutput("AT")
-                if output == "" or output == None:
+                if output == "" or output is None:
                     print(strings['failText'])
                     print(strings['verInfoCheckConn'])
                     model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
@@ -2264,14 +2264,14 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
                     rt() # Flush the command output file
                 AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
                 output = readOutput("AT") # Output is retrieved from the command
-                if output == "" or output == None:
+                if output == "" or output is None:
                     AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
                     output = readOutput("AT")
-                    if output == "" or output == None:
+                    if output == "" or output is None:
                         AT.send("AT+DEVCONINFO", True) # Only works when the modem is working with modemUnlock("SAMSUNG")
                         output = readOutput("AT")
                         try:
-                            if output == "" or output == None:
+                            if output == "" or output is None:
                                 print(strings['failText'])
                                 print(strings['verInfoCheckConn'])
                             else:
@@ -2304,13 +2304,13 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
                 rt() # Flush the command output file
             AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
             output = readOutput("AT") # Output is retrieved from the command
-            if output == "" or output == None:
+            if output == "" or output is None:
                 AT.send("AT+DEVCONINFO") # Only works when the modem is working with modemUnlock("SAMSUNG")
                 output = readOutput("AT")
-                if output == "" or output == None:
+                if output == "" or output is None:
                     AT.send("AT+DEVCONINFO", True) # Third try with a serial reset, mirroring the GUI path which recovers flaky connections
                     output = readOutput("AT")
-                if output == "" or output == None:
+                if output == "" or output is None:
                     if showtext:
                         print(strings['failText'])
                 else:
@@ -2318,7 +2318,7 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
                         print(strings['okText'])
             output = parse_devconinfo(output) # Make the output actually readable (parse the output)
             model = re.search(r'Model:\s*(\S+)', output) # Extract only the model no. from the output
-            if output == "" or output == None:
+            if output == "" or output is None:
                 tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Fail"))
                 tthread.start() # Sends basic, anonymized success_checks info with only the model number.
                 return "Fail"
@@ -2697,8 +2697,8 @@ def setFakeBatteryPercent():
 
 def resetBatteryPercent():
     adbMenu()
-    print(f"Resetting percentage...", end="")
-    ADB.send(f"shell dumpsys battery reset")
+    print("Resetting percentage...", end="")
+    ADB.send("shell dumpsys battery reset")
     output = readOutput("ADB")
     if "unauthorized" in output:
         print("  FAIL (You need to authorize the device via the USB Debugging prompt. Unplugging and replugging the device may help with this.)")
@@ -3039,7 +3039,7 @@ class SettingsDialog(QtWidgets.QDialog):
             }
         """)
 
-        
+
 
         # main toggles
         main_keys = ["dark_theme","hacker_font","slower_animations","update_check","enable_preload","contributionsuggestions"]
@@ -3124,7 +3124,7 @@ class SettingsDialog(QtWidgets.QDialog):
 # ------------ main window ------------
 class MainWindow(QtWidgets.QMainWindow):
     instance = None  # for set_brand() global bridge
-    
+
     # UI changes - Primary and Secondary button styles
     global PRIMARY_BTN_QSS
     PRIMARY_BTN_QSS = f"""
