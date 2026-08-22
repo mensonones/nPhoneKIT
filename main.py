@@ -44,6 +44,7 @@ from nphonekit_ui import (
 from datetime import datetime, timedelta
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
+from nphonekit_services import FeedbackClient
 import traceback # Error handling
 from typing import Tuple
 
@@ -1925,21 +1926,14 @@ def featureRequest():
     else:
         print("Canceled.")
 
-    data = {
-        "timestamp": time.time(),
-        "uuid": str(get_public_hardware_uuid()),
-        "feature": featureDesc,
-        "phoneKITversion": VERSION
-    }
-
-    try:
-        response = requests.post(f"{FIREBASE_URL}/feature_requests.json", json=data)
-        if response.status_code == 200:
-            status = "Feature request submitted successfully!  OK"
-        else:
-            status = "Error: Feature request failed to send. Check your connection?  FAIL"
-    except Exception:
-        status = "Error: Feature request failed to send. Check your connection?  FAIL"
+    submitted = FeedbackClient(FIREBASE_URL).feature_request(
+        featureDesc, get_public_hardware_uuid(), VERSION
+    )
+    status = (
+        "Feature request submitted successfully!  OK"
+        if submitted else
+        "Error: Feature request failed to send. Check your connection?  FAIL"
+    )
     print(status)
 
 def bugReport():
@@ -1956,21 +1950,14 @@ def bugReport():
     else:
         print("Canceled.")
 
-    data = {
-        "timestamp": time.time(),
-        "uuid": str(get_public_hardware_uuid()),
-        "bug": bugDesc,
-        "phoneKITversion": VERSION
-    }
-
-    try:
-        response = requests.post(f"{FIREBASE_URL}/bug_reports.json", json=data)
-        if response.status_code == 200:
-            status = "Bug report submitted successfully!  OK"
-        else:
-            status = "Error: Bug report failed to send. Check your connection?  FAIL"
-    except Exception:
-        status = "Error: Bug report failed to send. Check your connection?  FAIL"
+    submitted = FeedbackClient(FIREBASE_URL).bug_report(
+        bugDesc, get_public_hardware_uuid(), VERSION
+    )
+    status = (
+        "Bug report submitted successfully!  OK"
+        if submitted else
+        "Error: Bug report failed to send. Check your connection?  FAIL"
+    )
     print(status)
 
 def setFakeBatteryPercent():
