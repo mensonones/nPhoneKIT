@@ -341,6 +341,62 @@ def test_select_serial_port_multiple_keeps_first_and_notes():
     assert "/dev/ttyUSB0" in note
 
 
+# ---------------------------------------------------------------------------
+# multi_device_note  (device-aware: groups interfaces by USB VID/PID/serial)
+# ---------------------------------------------------------------------------
+
+class _FakePort:
+    def __init__(self, device, vid=None, pid=None, serial_number=None):
+        self.device = device
+        self.vid = vid
+        self.pid = pid
+        self.serial_number = serial_number
+
+
+def test_multi_device_note_none_when_no_ports():
+    assert core.multi_device_note([]) is None
+    assert core.multi_device_note(None) is None
+
+
+def test_multi_device_note_single_device_multiple_interfaces_is_quiet():
+    # One phone exposing three interfaces (same VID/PID/serial) -> no warning.
+    ports = [
+        _FakePort("/dev/ttyACM0", vid=0x04E8, pid=0x6860, serial_number="ABC"),
+        _FakePort("/dev/ttyACM1", vid=0x04E8, pid=0x6860, serial_number="ABC"),
+        _FakePort("/dev/ttyACM2", vid=0x04E8, pid=0x6860, serial_number="ABC"),
+    ]
+    assert core.multi_device_note(ports) is None
+
+
+def test_multi_device_note_warns_on_two_distinct_devices():
+    ports = [
+        _FakePort("/dev/ttyACM0", vid=0x04E8, pid=0x6860, serial_number="AAA"),
+        _FakePort("/dev/ttyACM1", vid=0x04E8, pid=0x6860, serial_number="AAA"),
+        _FakePort("/dev/ttyACM2", vid=0x2717, pid=0xFF40, serial_number="BBB"),
+    ]
+    note = core.multi_device_note(ports)
+    assert note is not None
+    assert "Multiple devices detected" in note
+
+
+def test_multi_device_note_ports_without_usb_identity_count_as_distinct():
+    # No VID/PID/serial -> keyed by path, so two are two devices.
+    ports = [_FakePort("/dev/ttyUSB0"), _FakePort("/dev/ttyUSB1")]
+    assert core.multi_device_note(ports) is not None
+    # ...but a single identity-less port is fine.
+    assert core.multi_device_note([_FakePort("/dev/ttyUSB0")]) is None
+
+
+def test_distinct_serial_devices_groups_by_identity():
+    ports = [
+        _FakePort("/dev/ttyACM0", vid=1, pid=2, serial_number="X"),
+        _FakePort("/dev/ttyACM1", vid=1, pid=2, serial_number="X"),
+        _FakePort("/dev/ttyACM2", vid=1, pid=2, serial_number="Y"),
+    ]
+    groups = core.distinct_serial_devices(ports)
+    assert len(groups) == 2
+
+
 def test_parse_devconinfo_renders_known_and_unknown_fields():
     output = core.parse_devconinfo(
         "+DEVCONINFO:MN(SM-S918B);SN(ABC123);CUSTOM();IGNORED"
