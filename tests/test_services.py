@@ -101,3 +101,20 @@ def test_telemetry_client_posts_first_payload(tmp_path):
             "phoneKITversion": "1.2.3", "errors": "output",
         }},
     )]
+
+
+def test_telemetry_client_uses_model_string_verbatim(tmp_path):
+    # model is now a plain string (from nphonekit_core.parse_model), not a
+    # regex match object, so it must be sent as-is.
+    calls = []
+    client = TelemetryClient(
+        "https://example.test", True, True, "1.2.3",
+        post=lambda url, **kwargs: calls.append((url, kwargs)),
+        pull_errors=lambda: "",
+        marker_path=tmp_path / ".notfirst",
+        clock=lambda: 1.0,
+    )
+
+    client.submit("UUID", "SM-G991B", "ACTION", "Success")
+
+    assert calls[0][1]["json"]["model"] == "SM-G991B"
