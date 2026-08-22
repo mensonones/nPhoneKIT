@@ -526,6 +526,25 @@ class SamsungModemUnlocker:
             self.at_client.send("AT+ACTIVATE=0,0,0")
 
 
+class SamsungRebootClient:
+    """Send the Samsung/Android crash-reboot command and classify its result."""
+
+    def __init__(self, at_client, clear_output, read_output):
+        self.at_client = at_client
+        self.clear_output = clear_output
+        self.read_output = read_output
+
+    def crash_reboot(self):
+        """Return True on disconnect-success, False on an explicit AT error, else None."""
+        self.clear_output()
+        try:
+            self.at_client.send("AT+CFUN=1,1")
+        except Exception as error:
+            if "disconnected" in str(error):
+                return True
+        return False if "OK" in self.read_output("AT") else None
+
+
 class FastbootPartitionEraser:
     """Run explicitly targeted Fastboot erase operations."""
 

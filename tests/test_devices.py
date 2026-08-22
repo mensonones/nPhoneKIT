@@ -281,6 +281,32 @@ def test_samsung_modem_unlocker_retries_failed_linux_preload_once():
     ]
 
 
+def test_samsung_reboot_client_reports_disconnect_as_success():
+    class FakeAT:
+        def send(self, command):
+            raise RuntimeError("serial disconnected")
+
+    cleared = []
+    client = devices.SamsungRebootClient(
+        FakeAT(), lambda: cleared.append(True), lambda source: ""
+    )
+
+    assert client.crash_reboot() is True
+    assert cleared == [True]
+
+
+def test_samsung_reboot_client_reports_at_ok_as_failure():
+    class FakeAT:
+        def send(self, command):
+            pass
+
+    client = devices.SamsungRebootClient(
+        FakeAT(), lambda: None, lambda source: "OK"
+    )
+
+    assert client.crash_reboot() is False
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()
