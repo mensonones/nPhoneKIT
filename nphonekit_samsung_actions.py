@@ -1,0 +1,111 @@
+"""Samsung-specific device action workflows."""
+
+import re
+import threading
+
+
+class SamsungFrpActions:
+    """Execute Samsung FRP workflows using injected runtime dependencies."""
+
+    def __init__(
+        self,
+        *,
+        strings,
+        load_methods,
+        verinfo,
+        at,
+        adb,
+        log_command_output,
+        show_messagebox,
+        success_checks,
+        hardware_uuid,
+        formrequest,
+        confirm_method,
+    ):
+        self.strings = strings
+        self.load_methods = load_methods
+        self.verinfo = verinfo
+        self.at = at
+        self.adb = adb
+        self.log_command_output = log_command_output
+        self.show_messagebox = show_messagebox
+        self.success_checks = success_checks
+        self.hardware_uuid = hardware_uuid
+        self.formrequest = formrequest
+        self.confirm_method = confirm_method
+
+    def pre_aug2022(self):
+        method = next(
+            (
+                item
+                for item in self.load_methods("unlocks.json")
+                if item.get("id") == "sam_pre_2022"
+            ),
+            None,
+        )
+        if not method or not self.confirm_method(
+            method["title"],
+            method["desc"],
+            method["pros"],
+            method["cons"],
+            method["minutes"],
+        ):
+            return
+
+        strings = self.strings
+        print(strings["getVerInfo"], end="")
+        info = self.verinfo(False)
+        model = re.search(r"Model:\s*(\S+)", info)
+        action = "FRP_Unlock_Pre_2022"
+
+        if info == "Fail":
+            print(strings["deviceCheckPluggedIn2"])
+            self._report(model, action, "Fail")
+            return
+
+        at_commands = [
+            "AT+DUMPCTRL=1,0",
+            "AT+DEBUGLVC=0,5",
+            "AT+SWATD=0",
+            "AT+ACTIVATE=0,0,0",
+            "AT+SWATD=1",
+            "AT+DEBUGLVC=0,5",
+        ]
+        adb_commands = [
+            "shell settings put global setup_wizard_has_run 1",
+            "shell settings put secure user_setup_complete 1",
+            "shell content insert --uri content://settings/secure --bind name:s:DEVICE_PROVISIONED --bind value:i:1",
+            "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:i:1",
+            "shell content insert --uri content://settings/secure --bind name:s:INSTALL_NON_MARKET_APPS --bind value:i:1",
+            "shell am start -c android.intent.category.HOME -a android.intent.action.MAIN",
+        ]
+
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["misuseFrpGuidance"])
+        print(strings["attemptingEnableAdb"], end="")
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["frpUnlockStepsPre2022"])
+        for command in at_commands:
+            self.at.send(command)
+
+        output = self.log_command_output("AT", "AT")
+        if "error" in output.lower():
+            print(strings["failText"])
+            print(strings["frpNotCompatible"])
+            self._report(model, action, "Fail")
+            self.formrequest()
+            return
+
+        print(strings["okText"])
+        print(strings["runUnlock"], end="")
+        self.show_messagebox(500, 200, "nPhoneKIT", strings["usbDebuggingPromptCheck"])
+        for command in adb_commands:
+            self.adb.send(command)
+        print(strings["okText"])
+        print(strings["unlockSuccess"])
+        self._report(model, action, "Success")
+        self.formrequest()
+
+    def _report(self, model, action, status):
+        threading.Thread(
+            target=self.success_checks,
+            args=(self.hardware_uuid(), model, action, status),
+        ).start()

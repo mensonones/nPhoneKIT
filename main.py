@@ -53,6 +53,7 @@ from nphonekit_action_support import (
     maybe_show_contribution,
     unlock_modem,
 )
+from nphonekit_samsung_actions import SamsungFrpActions
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1070,67 +1071,9 @@ def formrequest():
 #  Unlocking methods for different devices
 # =============================================
 
-def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
-    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_pre_2022")
-    if method:
-            m = method
-            picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:
-                print(strings['getVerInfo'], end="")
-                info = verinfo(False)
-                model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
+def frp_unlock_pre_aug2022():
+    samsung_frp_actions.pre_aug2022()
 
-                if info == "Fail":
-                    print(strings['deviceCheckPluggedIn2'])
-                    tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Pre_2022", "Fail"))
-                    tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                else:
-                    ATcommands = [
-                        "AT+DUMPCTRL=1,0",
-                        "AT+DEBUGLVC=0,5",
-                        "AT+SWATD=0", # Removes some kind of proprietary SAMSUNG modem lock
-                        "AT+ACTIVATE=0,0,0", # So that you can ACTIVATE
-                        "AT+SWATD=1", # Then relocks it.
-                        "AT+DEBUGLVC=0,5"
-                    ]
-
-                    ADBcommands = [ # Run list of commands in order to complete the unlock with newly-enabled ADB
-                        "shell settings put global setup_wizard_has_run 1",
-                        "shell settings put secure user_setup_complete 1",
-                        "shell content insert --uri content://settings/secure --bind name:s:DEVICE_PROVISIONED --bind value:i:1",
-                        "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:i:1",
-                        "shell content insert --uri content://settings/secure --bind name:s:INSTALL_NON_MARKET_APPS --bind value:i:1",
-                        "shell am start -c android.intent.category.HOME -a android.intent.action.MAIN"
-                    ]
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['misuseFrpGuidance'])
-
-                    print(strings['attemptingEnableAdb'], end="")
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['frpUnlockStepsPre2022'])
-
-                    for command in ATcommands:
-                        AT.send(command)
-
-                    output = log_command_output("AT", "AT")
-
-                    if "error" in output.lower():
-                        print(strings['failText'])
-                        print(strings['frpNotCompatible'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Pre_2022", "Fail"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
-                    else:
-                        print(strings['okText'])
-                        print(strings['runUnlock'], end="")
-                        show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
-                        for command in ADBcommands:
-                            ADB.send(command)
-                        print(strings['okText'])
-                        print(strings['unlockSuccess'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_Pre_2022", "Success"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
 
 def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security patch update
     method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_2022_23")
@@ -1944,6 +1887,7 @@ def main():
 serman1 = None
 preloader = None
 samsung_modem_unlocker = None
+samsung_frp_actions = None
 
 
 def disable_preload():
@@ -1963,7 +1907,7 @@ def run_app():
     background threads belong to the executable entrypoint and therefore
     happen only when the app is launched.
     """
-    global serman, serman1, preloader, samsung_modem_unlocker
+    global serman, serman1, preloader, samsung_modem_unlocker, samsung_frp_actions
 
     persist_settings()
 
@@ -2001,6 +1945,19 @@ def run_app():
     serman1 = runtime.serman1
     preloader = runtime.preloader
     samsung_modem_unlocker = runtime.samsung_modem_unlocker
+    samsung_frp_actions = SamsungFrpActions(
+        strings=strings,
+        load_methods=load_unlock_methods,
+        verinfo=verinfo,
+        at=AT,
+        adb=ADB,
+        log_command_output=log_command_output,
+        show_messagebox=show_messagebox_at,
+        success_checks=success_checks,
+        hardware_uuid=get_public_hardware_uuid,
+        formrequest=formrequest,
+        confirm_method=stw,
+    )
 
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))
     ttthread.start() # Sends basic, anonymized success_checks info with only the model number.
