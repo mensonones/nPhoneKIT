@@ -47,6 +47,11 @@ from nphonekit_maintenance import get_os_info, self_fix_serial
 from nphonekit_runtime import initialize_runtime
 from nphonekit_settings import DEFAULT_SETTINGS, SettingsStore
 from nphonekit_maintenance_ui import get_output_text, show_serial_permission_fix
+from nphonekit_action_support import (
+    load_unlock_methods,
+    maybe_show_contribution,
+    unlock_modem,
+)
 from typing import Tuple
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
@@ -1052,25 +1057,20 @@ def contribution_prompt(x, y):  # Nicely formatted contribution/support message 
     box.grab_set()
     box.wait_window()
 
-def modemUnlock(manufacturer, softUnlock=False): # Unlock the modem per-action if preload wasn't enabled
-    if samsung_modem_unlocker is not None:
-        samsung_modem_unlocker.unlock(manufacturer, softUnlock)
+def modemUnlock(manufacturer, softUnlock=False):
+    unlock_modem(samsung_modem_unlocker, manufacturer, softUnlock)
 
 # Function that can parse DEVCONINFO in order to make it more readable
 parse_devconinfo = nphonekit_core.parse_devconinfo
 
-def lu(path="unlocks.json"):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
 def formrequest():
-    if contributionsuggestions is True:
-        contribution_prompt(500, 500)
+    maybe_show_contribution(contributionsuggestions, contribution_prompt)
 # =============================================
 #  Unlocking methods for different devices
 # =============================================
 
 def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "sam_pre_2022":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
@@ -1132,7 +1132,7 @@ def frp_unlock_pre_aug2022(): # FRP unlock for pre-aug2022 security patch update
                         formrequest()
 
 def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security patch update
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "sam_2022_23":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
@@ -1189,7 +1189,7 @@ def frp_unlock_aug2022_to_dec2022(): # FRP unlock for aug2022-dec2022 security p
                         formrequest()
 
 def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "sam_2024":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
@@ -1276,7 +1276,7 @@ def frp_unlock_2024(): # FRP unlock for early 2024-ish security patch update
                         formrequest()
 
 def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch update
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "sam_15_16":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
@@ -1357,7 +1357,7 @@ def general_frp_unlock(): # Not completed yet
         print(strings['deviceNotSupportedUniversal'])
 
 def LG_screen_unlock(): # Screen unlock on supported LG devices *untested*
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "lg_unlock":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
@@ -1390,7 +1390,7 @@ def LG_screen_unlock(): # Screen unlock on supported LG devices *untested*
                         tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
 
 def MotoFastbootFRP1():
-    methods = lu("unlocks.json")
+    methods = load_unlock_methods("unlocks.json")
     for m in methods:
         if m["id"] == "moto_fastboot_frp_unlock":
             picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
