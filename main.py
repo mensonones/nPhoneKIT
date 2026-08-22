@@ -265,6 +265,7 @@ from nphonekit_devices import (  # noqa: E402
     SamsungDeviceInfoClient,
     SamsungRebootClient,
     SamsungWifiTestClient,
+    MtkClientRunner,
     SerialManager,
     SerialManagerWindows,
     SamsungPreloader,
@@ -1836,21 +1837,12 @@ def macos_libusb_present(): # Check whether libusb is installed so mtkclient can
     return any(os.path.exists(p) for p in candidates)
 
 def mtkclient():
-    if os_config == "WINDOWS":
-        os.system('pip install -r deps/mtkclient/requirements.txt')
-        os.system('python ./deps/mtkclient/mtk_gui.py')
-    elif os_config == "MACOS": # macOS was missing entirely; run mtkclient with the current interpreter (no sudo/apt like Linux)
-        if not macos_libusb_present(): # mtkclient can't talk to USB without libusb; bail early with guidance instead of a cryptic crash
-            print(strings['mtkLibusbMissing'])
-            show_messagebox_at(500, 200, "nPhoneKIT", strings['mtkLibusbMissing'])
-            return
-        os.system(f'"{sys.executable}" -m pip install -r deps/mtkclient/requirements.txt')
-        os.system(f'"{sys.executable}" ./deps/mtkclient/mtk_gui.py')
-    elif os_config == "LINUX":
-        #os.system('sudo pip install --no-deps statsd scrypt repoze.lru keystone-engine fusepy aniso8601 Yappi wrapt werkzeug WebOb vine unicorn tzdata testtools shiboken6 Routes rfc3986 pyusb pyflakes pycryptodomex pycryptodome pycodestyle psutil prometheus-client PrettyTable pbr PasteDeploy Paste netaddr msgpack mccabe itsdangerous iso8601 greenlet elementpath dnspython capstone cachetools blinker xmlschema testscenarios testresources stevedore SQLAlchemy PySide6-Essentials oslo.i18n oslo.context os-service-types Flask flake8 eventlet debtcollector amqp PySide6-Addons pysaml2 oslo.utils oslo.config kombu keystoneauth1 futurist Flask-RESTful dogpile.cache alembic pyside6 oslo.serialization oslo.middleware oslo.db oslo.concurrency python-keystoneclient pycadf osprofiler oslo.policy oslo.log oslo.upgradecheck oslo.service oslo.metrics oslo.cache oslo.messaging keystonemiddleware keystone --break-system-packages')
-        #os.system('sudo python3 deps/mtkclient/mtk_gui.py')
-        os.system('sudo apt install libxcb-cursor0')
-        os.system("sudo bash -c 'source ./deps/venv/bin/activate && python3 ./deps/mtkclient/mtk_gui.py'")
+    runner = MtkClientRunner(os_config, sys.executable, macos_libusb_present)
+    if not runner.available():
+        print(strings['mtkLibusbMissing'])
+        show_messagebox_at(500, 200, "nPhoneKIT", strings['mtkLibusbMissing'])
+        return
+    runner.run()
 
 def tkinput(title="Enter Value", text="Please enter a value:", placeholder="", ok_text="OK", cancel_text="Cancel"):
     app = QtWidgets.QApplication.instance()

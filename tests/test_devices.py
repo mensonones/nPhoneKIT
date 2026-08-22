@@ -421,6 +421,34 @@ def test_samsung_wifi_test_client_rejects_incomplete_response():
     assert client.open() is False
 
 
+def test_mtkclient_runner_builds_linux_commands_and_runs_them():
+    runner = devices.MtkClientRunner("LINUX", "/usr/bin/python3", lambda: True)
+    commands = []
+
+    runner.run(commands.append)
+
+    assert commands == [
+        "sudo apt install libxcb-cursor0",
+        "sudo bash -c 'source ./deps/venv/bin/activate && python3 ./deps/mtkclient/mtk_gui.py'",
+    ]
+
+
+def test_mtkclient_runner_uses_current_python_on_macos():
+    runner = devices.MtkClientRunner("MACOS", "/env/bin/python", lambda: True)
+
+    assert runner.available() is True
+    assert runner.commands() == [
+        '"/env/bin/python" -m pip install -r deps/mtkclient/requirements.txt',
+        '"/env/bin/python" ./deps/mtkclient/mtk_gui.py',
+    ]
+
+
+def test_mtkclient_runner_blocks_macos_without_libusb():
+    runner = devices.MtkClientRunner("MACOS", "/env/bin/python", lambda: False)
+
+    assert runner.available() is False
+
+
 def test_fastboot_eraser_targets_each_destructive_command(monkeypatch):
     monkeypatch.setattr(devices.shutil, "which", lambda path: "/usr/bin/fastboot")
     eraser = devices.FastbootPartitionEraser()
