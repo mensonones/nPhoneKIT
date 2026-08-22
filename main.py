@@ -668,6 +668,11 @@ def set_brand(name):
     select_brand(name)
 
 # ------------- entry point -------------
+# Lazily created on the Qt main thread by init_qt_dialog_helper(); must exist at
+# module scope so the `if qt_dialog_helper is None` guards don't raise NameError.
+qt_dialog_helper = None
+
+
 def init_qt_dialog_helper():
     global qt_dialog_helper
     if qt_dialog_helper is None:
