@@ -247,6 +247,17 @@ def success_checks(uuid, model, action, status, first=True):
         marker_path=Path(__file__).parent / ".notfirst",
     ).submit(uuid, model, action, status, first)
 
+def report_action(action, status, model=None):
+    """Fire the anonymized success-check telemetry for one action, off-thread.
+
+    Wraps the repeated `threading.Thread(target=success_checks, ...)` boilerplate
+    used across the device-action wrappers.
+    """
+    threading.Thread(
+        target=success_checks,
+        args=(get_public_hardware_uuid(), model, action, status),
+    ).start()
+
 # =============================================
 #  Different instructions for the user
 # =============================================
@@ -478,17 +489,11 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
             print(strings['failText'])
             print(strings['verInfoCheckConn'])
             model = nphonekit_core.parse_model(output)
-            tthread = threading.Thread(target=success_checks, args=(
-                get_public_hardware_uuid(), model, "VersionInfo", "Fail"
-            ))
-            tthread.start()
+            report_action("VersionInfo", "Fail", model)
         else:
             print(strings['okText'])
             model = nphonekit_core.parse_model(output)
-            tthread = threading.Thread(target=success_checks, args=(
-                get_public_hardware_uuid(), model, "VersionInfo", "Success"
-            ))
-            tthread.start()
+            report_action("VersionInfo", "Success", model)
         output = parse_devconinfo(output)
         print(output)
     else:
@@ -502,12 +507,10 @@ def verinfo(gui=True, showtext=True): # Get version info on the device. Pretty s
             output = parse_devconinfo(output) # Make the output actually readable (parse the output)
             model = nphonekit_core.parse_model(output) # Extract only the model no. from the output
             if output == "" or output is None:
-                tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Fail"))
-                tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+                report_action("VersionInfo", "Fail", model)
                 return "Fail"
             else:
-                tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "VersionInfo", "Success"))
-                tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+                report_action("VersionInfo", "Success", model)
                 return output # Return the version info
 
 def wifitest(): # Opens a hidden WLANTEST menu on Samsung devices
@@ -520,12 +523,10 @@ def wifitest(): # Opens a hidden WLANTEST menu on Samsung devices
         AT, samsung_modem_unlocker, rt, readOutput
     ).open():
         print(strings['okText'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "WIFITEST", "Success"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("WIFITEST", "Success", model)
     else:
         print(strings['failText'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "WIFITEST", "Fail"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("WIFITEST", "Fail", model)
 
 def reboot(): # Crash an android phone to reboot
     print(strings['crashingToReboot'], end="")
@@ -536,12 +537,10 @@ def reboot(): # Crash an android phone to reboot
     if result is False:
         print(strings['failText'])
         print(strings['crashRebootFailed'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT", "Fail"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("REBOOT", "Fail", model)
     elif result is True:
         print(strings['okText'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT", "Success"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("REBOOT", "Success", model)
 
 def reboot_sam(): # Crash a Samsung phone to reboot
     print(strings['crashingToReboot'], end="")
@@ -553,12 +552,10 @@ def reboot_sam(): # Crash a Samsung phone to reboot
     if result is False:
         print(strings['failText'])
         print(strings['crashRebootFailed'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_SAM", "Fail"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("REBOOT_SAM", "Fail", model)
     elif result is True:
         print(strings['okText'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_SAM", "Success"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("REBOOT_SAM", "Success", model)
 
 def bloatRemove():
     print(strings['uninstallingPackages'], end="")
@@ -577,13 +574,11 @@ def bloatRemove():
     if remover.remove(serial):
         print(strings['okText'])
         print(strings['debloatSucceeded'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), None, "DEBLOAT_SAM", "Success"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("DEBLOAT_SAM", "Success")
     else:
         print(strings['failText'])
         print(strings['devNotConnectedOrOtherErr'])
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), None, "DEBLOAT_SAM", "Fail"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("DEBLOAT_SAM", "Fail")
 
 def reboot_download_sam(): # Reboot Samsung device to download mode
     print(strings['rebootingDownloadMode'], end="")
@@ -592,8 +587,7 @@ def reboot_download_sam(): # Reboot Samsung device to download mode
     if basic_success_checks:
         info = verinfo(False)
         model = nphonekit_core.parse_model(info)
-        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "REBOOT_DOWNLOAD_SAM", "Fail"))
-        tthread.start() # Sends basic, anonymized success_checks info with only the model number.
+        report_action("REBOOT_DOWNLOAD_SAM", "Fail", model)
     print(" OK")
 
 def imeicheck():
