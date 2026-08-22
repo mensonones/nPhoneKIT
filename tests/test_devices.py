@@ -2,6 +2,10 @@
 
 from types import SimpleNamespace
 
+import pytest
+
+pytest.importorskip("serial")
+
 import nphonekit_devices as devices
 
 
@@ -46,3 +50,43 @@ def test_adb_devices_hides_command_errors(monkeypatch):
     monkeypatch.setattr(devices.ADB, "_run", classmethod(lambda cls, *args, **kwargs: fail()))
 
     assert devices.ADB.devices() == []
+
+
+def test_serial_manager_detects_linux_port(monkeypatch):
+    manager = devices.SerialManager.__new__(devices.SerialManager)
+    monkeypatch.setattr(devices.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        devices.glob,
+        "glob",
+        lambda pattern: ["/dev/ttyACM0"] if pattern == "/dev/ttyACM*" else [],
+    )
+
+    assert manager.detect_port() == "/dev/ttyACM0"
+
+
+def test_serial_manager_send_reads_fake_serial():
+    class FakeSerial:
+        is_open = True
+
+        def __init__(self):
+            self.written = []
+            self.responses = [b"OK\r\n", b""]
+
+        def flushInput(self):
+            pass
+
+        def flushOutput(self):
+            pass
+
+        def write(self, value):
+            self.written.append(value)
+
+        def readline(self):
+            return self.responses.pop(0)
+
+    manager = devices.SerialManager.__new__(devices.SerialManager)
+    manager.ser = FakeSerial()
+    manager.strings = {}
+
+    assert manager.send("AT+TEST") == "OK"
+    assert manager.ser.written == [b"AT+TEST\r\n"]

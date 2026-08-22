@@ -1,12 +1,16 @@
 """Device command clients used by the nPhoneKIT application."""
 
+import glob
 import os
+import platform
 import shlex
 import shutil
 import subprocess
 import time
 
 import nphonekit_core
+import serial
+from serial.tools import list_ports
 
 
 class ADB:
@@ -105,3 +109,147 @@ class ADB:
     @staticmethod
     def usbswitch(arg, action):
         return True
+
+
+class SerialManager:
+    """Cross-platform serial manager for AT command communication."""
+
+    def __init__(self, strings=None, debug_info=False, baud=115200):
+        self.strings = strings or {}
+        self.debug_info = debug_info
+        self.baud = baud
+        self.port = self.detect_port()
+        self.ser = None
+        if not self.port:
+            if self.debug_info:
+                print(self.strings.get("noDeviceSermanError", "No serial device found."))
+        else:
+            try:
+                self.ser = serial.Serial(self.port, self.baud, timeout=2)
+                time.sleep(0.5)
+                if self.debug_info:
+                    print(f"{self.strings.get('sermanConnectedPort', 'Connected: ')}{self.port}")
+            except serial.SerialException as error:
+                message = self.strings.get("sermanOpeningPortError", "Could not open serial port ")
+                raise RuntimeError(f"{message}{self.port}: {error}") from error
+
+    def reset(self):
+        self.__init__(self.strings, self.debug_info, self.baud)
+
+    def detect_port(self):
+        system = platform.system()
+        if system == "Windows":
+            for index in range(1, 256):
+                try:
+                    connection = serial.Serial(f"COM{index}")
+                    connection.close()
+                    return f"COM{index}"
+                except Exception:
+                    pass
+        elif system == "Darwin":
+            ports = glob.glob("/dev/tty.usb*")
+            chosen, note = nphonekit_core.select_serial_port(ports)
+            if note:
+                print(note)
+            return chosen
+        else:
+            ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
+            chosen, note = nphonekit_core.select_serial_port(ports)
+            if note:
+                print(note)
+            return chosen
+        return None
+
+    def send(self, command):
+        if not self.ser or not self.ser.is_open:
+            print(self.strings.get("noDeviceGenericError", "No serial device connected."))
+            return None
+        self.ser.flushInput()
+        self.ser.flushOutput()
+        self.ser.write((command.strip() + "\r\n").encode())
+        time.sleep(0.1)
+        output = []
+        while True:
+            line = self.ser.readline()
+            if not line:
+                break
+            output.append(line.decode(errors="ignore").strip())
+        return "\n".join(output)
+
+    def close(self):
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+
+
+class SerialManagerWindows:
+    """Windows-specific serial manager with COM-port prioritization."""
+
+    def __init__(self, strings=None, debug_info=False, port=None, baud=115200):
+        self.strings = strings or {}
+        self.debug = debug_info
+        self.baud = baud
+        self.ser = None
+        if platform.system() != "Windows":
+            raise RuntimeError(self.strings.get("sermanWindowsOsError", "Windows-only serial manager."))
+        self.port = port or self.detect_port()
+        if not self.port:
+            if self.debug:
+                print(self.strings.get("sermanNoComPort", "No COM port found."))
+            return
+        try:
+            self.ser = serial.Serial(self.port, self.baud, timeout=2)
+            time.sleep(0.5)
+            if self.debug:
+                print(f"{self.strings.get('sermanConnectedPort', 'Connected: ')}{self.port} @ {self.baud} baud")
+        except (serial.SerialException, PermissionError) as error:
+            if self.debug:
+                message = self.strings.get("sermanOpeningPortError", "Could not open serial port ")
+                print(f"{message}{self.port}: {error}")
+
+    def reset(self):
+        self.__init__(self.strings, self.debug, self.port, self.baud)
+
+    def detect_port(self):
+        ports = list_ports.comports()
+        if self.debug:
+            available = [port.device for port in ports]
+            print(f"{self.strings.get('sermanWinAvailablePorts', 'Available ports: ')}{available}")
+        sorted_ports = sorted(
+            ports,
+            key=lambda port: any(
+                marker in port.description.upper() for marker in ("SAMSUNG", "MOBILE", "MODEM", "USB")
+            ),
+            reverse=True,
+        )
+        for port in sorted_ports:
+            if port.device.upper().startswith("COM"):
+                try:
+                    test_connection = serial.Serial(port.device)
+                    test_connection.close()
+                    if self.debug:
+                        print(f"{self.strings.get('sermanWinDev', 'Using port: ')}{port.device}")
+                    return port.device
+                except (serial.SerialException, PermissionError):
+                    continue
+        return None
+
+    def send(self, command, wait=0.1):
+        if not self.ser or not self.ser.is_open:
+            raise RuntimeError(self.strings.get("serPortNotOpen", "Serial port is not open."))
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        self.ser.write((command.strip() + "\r\n").encode())
+        time.sleep(wait)
+        lines = []
+        while True:
+            line = self.ser.readline()
+            if not line:
+                break
+            lines.append(line.decode(errors="ignore").strip())
+        return "\n".join(lines)
+
+    def close(self):
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+            if self.debug:
+                print(self.strings.get("sermanWinConClosed", "Serial connection closed."))
