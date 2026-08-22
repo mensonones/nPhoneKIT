@@ -28,6 +28,29 @@ def test_adb_run_builds_linux_sudo_command(monkeypatch):
     assert captured["kwargs"]["timeout"] == 7
 
 
+def test_command_output_helpers_round_trip_and_clear(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tmp_output.txt").write_text("AT response", encoding="utf-8")
+    (tmp_path / "tmp_output_adb.txt").write_text("ADB response", encoding="utf-8")
+
+    assert devices.readOutput("AT") == "AT response"
+    assert devices.readOutput("ADB") == "ADB response"
+    assert devices.readOutput("unknown") == ""
+
+    devices.rt()
+
+    assert not (tmp_path / "tmp_output.txt").exists()
+    assert not (tmp_path / "tmp_output_adb.txt").exists()
+
+
+def test_log_command_output_returns_buffer_content(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "tmp_output.txt").write_text("AT response", encoding="utf-8")
+
+    assert devices.log_command_output("AT", "AT") == "AT response"
+    assert "AT response" in capsys.readouterr().out
+
+
 def test_adb_devices_uses_core_parser(monkeypatch):
     devices.ADB.configure("LINUX", {}, lambda: None)
     monkeypatch.setattr(devices.ADB, "path", staticmethod(lambda: "/usr/bin/adb"))

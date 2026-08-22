@@ -17,6 +17,38 @@ from serial.tools import list_ports
 SERIAL_GROUPS = ("dialout", "uucp", "lock", "tty")
 
 
+def rt():
+    """Clear the AT and ADB command output buffers."""
+    for filename in ("tmp_output.txt", "tmp_output_adb.txt"):
+        try:
+            os.remove(filename)
+        except FileNotFoundError:
+            pass
+
+
+def readOutput(command_type):
+    """Read one of the command output buffers, returning empty when absent."""
+    filenames = {"AT": "tmp_output.txt", "ADB": "tmp_output_adb.txt"}
+    filename = filenames.get(command_type)
+    if filename is None:
+        return ""
+    try:
+        with open(filename, "r", encoding="utf-8", errors="ignore") as output_file:
+            return output_file.read()
+    except FileNotFoundError:
+        return ""
+
+
+def log_command_output(source, label):
+    """Print and return the latest output for a command source."""
+    output = readOutput(source)
+    if output:
+        print(f"\n\n{label} output:\n{output}\n\n")
+    else:
+        print(f"\n\n{label} output is empty.\n\n")
+    return output
+
+
 def is_root(os_config):
     """Return whether the current process has the required OS privileges."""
     if os_config == "WINDOWS":
