@@ -44,11 +44,11 @@ from nphonekit_ui import (
 )
 from datetime import datetime, timedelta
 import shutil # Fastboot partition eraser for Motorola
-import shlex
 import importlib.util # Self diagnostics of errors
 import nphonekit_core # Pure, unit-tested core logic (parsing, settings merge, device guards)
 import traceback # Error handling
 from typing import Tuple
+from nphonekit_devices import ADB
 
 ## nPhoneKIT permissions (these are the things that nPhoneKIT is capable of doing):
 
@@ -484,80 +484,6 @@ class AT:
                 except Exception:
                     # Device must not be plugged in?
                     print(strings['deviceConCheckNotPlugged'])
-
-class ADB: # ADB class for sending ADB commands if needed
-    def path(): # Resolve the adb binary once so every call agrees on which adb to use
-        adb_path = shutil.which("adb")
-        if adb_path is None:
-            for candidate in ["/opt/homebrew/bin/adb", "/usr/local/bin/adb", "/usr/bin/adb"]:
-                if os.path.exists(candidate):
-                    adb_path = candidate
-                    break
-        return adb_path
-
-    def _run(adb_path, command, timeout=15): # Build the argv with the right privilege/OS prefix and run it, capturing output. Always time-bounded so a stuck device can't hang the worker thread forever (which looked like a crash).
-        if os_config == "LINUX":
-            argv = ["sudo", adb_path] + shlex.split(command)
-        else:
-            argv = [adb_path] + shlex.split(command)
-        return subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
-
-    def devices(): # Return the list of (serial, state) pairs adb currently sees. state is e.g. 'device', 'unauthorized', 'offline'
-        adb_path = ADB.path()
-        if adb_path is None:
-            return []
-        try:
-            result = ADB._run(adb_path, "devices", timeout=10)
-        except Exception: # Includes subprocess.TimeoutExpired if adb wedges on a half-enumerated device; treat as "nothing visible yet"
-            return []
-        return nphonekit_core.parse_adb_devices(result.stdout)
-
-    def wait_for_device(timeout=40): # Poll adb until an authorized device appears. Returns 'device', 'unauthorized', or 'none'.
-        adb_path = ADB.path()
-        if adb_path is None:
-            return "none"
-        try:
-            ADB._run(adb_path, "start-server", timeout=15) # Make sure the server is up so it actively probes USB and can trigger the phone's auth prompt
-        except Exception: # Never let a slow/wedged start-server hang the wait
-            pass
-        print(strings['adbWaiting'])
-        deadline = time.time() + timeout
-        last = "none"
-        while time.time() < deadline:
-            states = [state for _, state in ADB.devices()]
-            if "device" in states:
-                print(strings['adbReady']) # Authorized and ready
-                return "device"
-            if "unauthorized" in states:
-                if last != "unauthorized":
-                    print(strings['adbUnauthorized']) # Announce the prompt only on the first transition, not every poll
-                last = "unauthorized" # Prompt is (or should be) showing on the phone; keep waiting for the user to tap ALLOW
-            time.sleep(1)
-        # Report why we gave up so the on-screen log distinguishes "never showed up" from "user didn't tap ALLOW"
-        print(strings['adbTimedOut'] if last == "unauthorized" else strings['adbNoDevice'])
-        return last
-
-    def send(command):
-        rt()
-        adb_path = ADB.path()
-        if adb_path is None:
-            print("ADB not found. Please install platform-tools and ensure adb is on PATH.")
-            with open('tmp_output_adb.txt', 'w', encoding='utf-8') as f:
-                f.write("ADB not found")
-            time.sleep(0.5)
-            return
-
-        try:
-            result = ADB._run(adb_path, command, timeout=30)
-            output = result.stdout or ""
-        except subprocess.TimeoutExpired: # A wedged adb command must not hang the unlock; surface it as an error the callers already check for
-            output = "error: adb command timed out"
-        with open('tmp_output_adb.txt', 'w', encoding='utf-8') as f:
-            f.write(output)
-        time.sleep(0.5)
-
-    def usbswitch(arg, action):
-        # Later, add logic to allow switching of device interface to AT, for more compatibility.
         return True
 
 def check_serial_permissions():
@@ -2947,6 +2873,8 @@ def run_app():
 
     if update_check:
         check_for_update()
+
+    ADB.configure(os_config, strings, rt)
 
     if os_config == "WINDOWS":
         serman = SerialManagerWindows()
