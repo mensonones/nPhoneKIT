@@ -256,7 +256,7 @@ except ModuleNotFoundError:
     if x == "y" or x == "Y":
         self_fix_serial()
 
-from nphonekit_devices import ADB, SerialManager, SerialManagerWindows  # noqa: E402
+from nphonekit_devices import ADB, AT, SerialManager, SerialManagerWindows  # noqa: E402
 
 MAIN_SCRIPT = os.path.abspath(__file__)
 
@@ -285,36 +285,6 @@ def privacyupdate():
 # opening a device during imports or tests.
 serman = None
 
-class AT:
-    def send(command, not_first=False):
-        # Making usbsend.py into a built-in class (SerialManager for Linux, or SerialManagerWindows for Windows) improves command speed by 10-20x, and improves multi-OS compatibility
-        rt()
-        if enable_preload:
-            preload_done.wait()
-        if not_first:
-            serman.reset()
-        with open("tmp_output.txt", "w", encoding="utf-8") as f:
-            try:
-                result = serman.send(command)
-                if result is None:
-                    result = serman.send(command)
-                    if result is None: # (If result is STILL None)
-                        result = "" # Then give up after the second try.
-                f.write(result)
-            except Exception: # If the connection isn't there, reset to attempt to gain the connection back
-                serman.reset()
-                time.sleep(1)
-                try:
-                    result = serman.send(command)
-                    if result is None:
-                        result = serman.send(command)
-                        if result is None: # (If result is STILL None)
-                            result = "" # Then give up after the second try.
-                    f.write(result)
-                except Exception:
-                    # Device must not be plugged in?
-                    print(strings['deviceConCheckNotPlugged'])
-        return True
 
 def check_serial_permissions():
     if os_config in ("LINUX", "MACOS"):
@@ -2711,6 +2681,7 @@ def run_app():
     else:
         serman = SerialManager(strings, debug_info)
     serman1 = SerialManager(strings, debug_info)
+    AT.configure(serman, lambda: enable_preload, preload_done, rt, strings)
     threading.Thread(target=preload_thread, daemon=True).start()
 
     ttthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), "NOT_First", "NOT_First", "Success", False))
