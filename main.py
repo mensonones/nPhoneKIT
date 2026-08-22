@@ -1136,77 +1136,8 @@ def frp_unlock_2024():
     samsung_frp_actions.unlock_2024()
 
 
-def frp_unlock_android15_16(): # FRP unlock for early 2024-ish security patch update
-    method = find_unlock_method(load_unlock_methods("unlocks.json"), "sam_15_16")
-    if method:
-            m = method
-            picked = stw(m["title"], m["desc"], m["pros"], m["cons"], m["minutes"])
-            if picked:
-                print(strings['getVerInfo'], end="")
-                info = verinfo(False)
-                model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
-
-                if info == "Fail":
-                    print(strings['deviceCheckPluggedIn2'])
-                    tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_15_16", "Fail"))
-                    tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                else:
-                    commands = [
-                        "AT",                 # Verify AT is working
-                        "AT+KSTRINGB=0,3",    # Work with Knox
-                        "AT+DUMPCTRL=1,0",    # Activate dev mode
-                        "AT+DEBUGLVL=0,4",    # Debug Level High
-                        "AT+SWATD=0",         # Disable modem lock
-                        "AT+ACTIVATE=0,0,0",  # Activate unlock
-                        "AT+SWATD=1"          # Re-enable modem lock (Triggers the popup)
-                    ]
-
-                    ADBcommands = [ # Run list of commands in order to complete the unlock with newly-enabled ADB
-                        "shell content insert --uri content://settings/secure --bind name:s:user_setup_complete --bind value:s:1",
-                        "shell pm uninstall -k --user 0 com.google.android.gsf",
-                        "shell am start -n com.android.settings/com.android.settings.Settings"
-                    ]
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['misuseFrpGuidance2024'])
-
-                    print(strings['attemptingEnableAdb'], end="")
-
-                    show_messagebox_at(500, 200, "nPhoneKIT", strings['frpUnlockSteps2024'])
-
-                    for command in commands:
-                        AT.send(command)
-
-                    log_command_output("AT", "AT")
-
-                    try:
-                        print(strings['okText'])
-                        print(strings['runUnlock'], end="")
-                        show_messagebox_at(500, 200, "nPhoneKIT", strings['usbDebuggingPromptCheck'])
-                        # Wait for the phone to re-enumerate into ADB mode and for the user to accept the USB debugging prompt.
-                        # Without this, the adb commands below run before the device is ready (or authorized) and silently do nothing.
-                        state = ADB.wait_for_device()
-                        if state != "device":
-                            raise RuntimeError(f"No authorized ADB device (state: {state})")
-                        for command in ADBcommands:
-                            ADB.send(command)
-                            out = log_command_output("ADB", f"ADB {command}")
-                            if "error:" in out.lower() or "no devices" in out.lower() or "unauthorized" in out.lower():
-                                raise RuntimeError(f"ADB command failed: {command}")
-                        print(strings['okText'])
-                        print(strings['unlockSuccess'])
-                        if model == "" or model is None:
-                            # Retry get model
-                            info = verinfo(False, False)
-                            model = re.search(r'Model:\s*(\S+)', info) # Extract only the model no. from the output
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_15_16", "Success"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
-                    except Exception:
-                        print(strings['failText'])
-                        print(strings['frpNotCompatible'])
-                        tthread = threading.Thread(target = success_checks, args = (get_public_hardware_uuid(), model, "FRP_Unlock_15_16", "Fail"))
-                        tthread.start() # Sends basic, anonymized success_checks info with only the model number. This is so we know what devices are compatible with which unlocks.
-                        formrequest()
+def frp_unlock_android15_16():
+    samsung_frp_actions.unlock_android15_16()
 
 def general_frp_unlock(): # Not completed yet
     raise NotImplementedError("This function is not yet implemented.")
