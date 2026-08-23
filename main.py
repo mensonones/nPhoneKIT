@@ -715,9 +715,9 @@ samsung_modem_unlocker = None
 samsung_frp_actions = None
 
 
-def disable_preload():
+def disable_preload(value=False):
     global enable_preload
-    enable_preload = False
+    enable_preload = value
 
 
 def set_preload_error(value):
